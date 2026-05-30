@@ -10,7 +10,7 @@ const ALL_NOTIFICATIONS = [
     amount: 'R 85,00',
     time: 'Just now',
     date: 'Today',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',
+    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
   {
     id: 2, type: 'resolved', unread: true,
@@ -19,7 +19,7 @@ const ALL_NOTIFICATIONS = [
     amount: 'R 45,00',
     time: '1h ago',
     date: 'Today',
-    icon: CheckCircle, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',
+    icon: CheckCircle, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
   {
     id: 3, type: 'reminder', unread: false,
@@ -28,7 +28,7 @@ const ALL_NOTIFICATIONS = [
     amount: 'R 320,00',
     time: 'Yesterday',
     date: 'Yesterday',
-    icon: AlertTriangle, iconBg: 'bg-orange-50', iconColor: 'text-orange-500',
+    icon: AlertTriangle, iconBg: 'bg-orange-50 dark:bg-orange-500/10', iconColor: 'text-orange-500 dark:text-orange-400',
   },
   {
     id: 4, type: 'charge', unread: false,
@@ -37,7 +37,7 @@ const ALL_NOTIFICATIONS = [
     amount: 'R 70,00',
     time: 'Yesterday',
     date: 'Yesterday',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',
+    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
   {
     id: 5, type: 'dispute', unread: false,
@@ -46,7 +46,7 @@ const ALL_NOTIFICATIONS = [
     amount: null,
     time: '2 days ago',
     date: '11 May',
-    icon: AlertTriangle, iconBg: 'bg-orange-50', iconColor: 'text-orange-500',
+    icon: AlertTriangle, iconBg: 'bg-orange-50 dark:bg-orange-500/10', iconColor: 'text-orange-500 dark:text-orange-400',
   },
   {
     id: 6, type: 'charge', unread: false,
@@ -55,7 +55,7 @@ const ALL_NOTIFICATIONS = [
     amount: 'R 120,00',
     time: '2 days ago',
     date: '11 May',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600',
+    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
 ];
 
@@ -93,22 +93,22 @@ const CustomerNotifications = () => {
           </span>
         ) : <span />}
         {unreadCount > 0 && (
-          <button onClick={markAllRead} className="text-sm text-emerald-600 font-semibold">
+          <button onClick={markAllRead} className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold">
             Mark all read
           </button>
         )}
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1 no-scrollbar">
         {FILTERS.map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
               filter === f
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-500 border border-gray-100'
+                ? 'bg-gray-900 dark:bg-white/10 text-white'
+                : 'bg-white dark:bg-white/5 text-gray-500 dark:text-white/30 border border-gray-100 dark:border-white/10'
             }`}
           >
             {f}
@@ -118,26 +118,27 @@ const CustomerNotifications = () => {
 
       {Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-            <Bell size={24} className="text-gray-300" />
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center mb-3">
+            <Bell size={24} className="text-gray-300 dark:text-white/20" />
           </div>
-          <p className="font-bold text-gray-900 mb-1">No notifications</p>
-          <p className="text-sm text-gray-400">Nothing here yet</p>
+          <p className="font-bold text-gray-900 dark:text-white mb-1">No notifications</p>
+          <p className="text-sm text-gray-400 dark:text-white/30">Nothing here yet</p>
         </div>
       ) : (
         <div className="space-y-6">
           {Object.entries(grouped).map(([date, notifs]) => (
             <div key={date}>
-              <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">{date}</p>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden divide-y divide-gray-50"
-                style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 dark:text-white/30 mb-3">{date}</p>
+              <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden divide-y divide-gray-50 dark:divide-white/5">
                 {notifs.map(n => {
                   const Icon = n.icon;
                   return (
                     <div
                       key={n.id}
                       className={`flex items-start gap-4 px-5 py-4 transition-colors ${
-                        n.unread ? 'bg-emerald-50/40' : 'hover:bg-gray-50'
+                        n.unread
+                          ? 'bg-emerald-50/40 dark:bg-emerald-500/5'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/5'
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-xl ${n.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
@@ -146,21 +147,21 @@ const CustomerNotifications = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{n.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{n.title}</p>
+                            <p className="text-xs text-gray-500 dark:text-white/40 mt-0.5">{n.body}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {n.unread && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
-                            <button onClick={() => dismiss(n.id)} className="text-gray-300 hover:text-gray-500">
+                            <button onClick={() => dismiss(n.id)} className="text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/40">
                               <X size={14} />
                             </button>
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-2">
                           {n.amount ? (
-                            <span className="text-sm font-bold text-gray-900">{n.amount}</span>
+                            <span className="text-sm font-bold text-gray-900 dark:text-white">{n.amount}</span>
                           ) : <span />}
-                          <span className="text-[11px] text-gray-400">{n.time}</span>
+                          <span className="text-[11px] text-gray-400 dark:text-white/30">{n.time}</span>
                         </div>
                       </div>
                     </div>

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronRight, AlertCircle, Link as LinkIcon, Store, ShieldAlert } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { formatZAR } from '../../utils/format';
-
-const CUSTOMER_NAME = 'John Doe';
+import { getEditRequests, subscribeEdits } from '../../store/notificationStore';
 
 const CUSTOMER_RESTAURANTS = [
   { id: '1', name: 'The Corner Bistro', code: 'TCB-001', balance: 450.5,  image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1200&auto=format&fit=crop' },
@@ -14,78 +13,52 @@ const CUSTOMER_RESTAURANTS = [
 const CustomerDashboard = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [editRequests, setEditRequests] = useState(getEditRequests());
 
-  const totalBalance = CUSTOMER_RESTAURANTS.reduce((sum, r) => sum + r.balance, 0);
+  useEffect(() => subscribeEdits(setEditRequests), []);
+
+  const pendingCount        = editRequests.filter(r => r.status === 'pending').length;
+  const totalBalance        = CUSTOMER_RESTAURANTS.reduce((sum, r) => sum + r.balance, 0);
   const filteredRestaurants = CUSTOMER_RESTAURANTS.filter(r =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const hr = new Date().getHours();
-  const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = CUSTOMER_NAME.split(' ')[0];
-
   return (
     <CustomerLayout>
 
-      {/* ── Greeting ── */}
-      <div className="mb-5">
-        <p className="text-gray-400 text-sm font-medium">{greeting} 👋</p>
-        <h1 className="text-2xl font-black text-gray-900 tracking-tight font-['Plus_Jakarta_Sans'] leading-tight mt-0.5">
-          {firstName}
-        </h1>
-      </div>
-
       {/* ── Hero Card ── */}
-      <div
-        className="rounded-3xl p-5 mb-5 relative overflow-hidden text-white"
-        style={{
-          background: 'linear-gradient(145deg, #0d2137 0%, #0a3328 50%, #0f4d3a 100%)',
-          boxShadow: '0 16px 48px rgba(10,33,55,0.25)',
-        }}
-      >
-        {/* Decorative glows */}
+      <div className="rounded-3xl p-5 mb-5 relative overflow-hidden text-white"
+        style={{ background: 'linear-gradient(145deg, #0d2137 0%, #0a3328 50%, #0f4d3a 100%)', boxShadow: '0 16px 48px rgba(10,33,55,0.25)' }}>
         <div className="absolute top-0 left-6 right-6 h-px pointer-events-none"
           style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)' }} />
         <div className="absolute -top-8 -right-8 w-44 h-44 rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(79,142,247,0.1), transparent 70%)' }} />
-        <div className="absolute -bottom-6 -left-6 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.08), transparent 70%)' }} />
 
-        {/* Balance */}
         <div className="relative z-10 mb-5">
-          <p className="text-[10px] uppercase tracking-[1.5px] text-white/40 font-bold mb-1">
-            Total Outstanding
-          </p>
-          <p className="text-4xl font-black tracking-tight font-['Plus_Jakarta_Sans'] leading-none">
-            {formatZAR(totalBalance)}
-          </p>
+          <p className="text-[10px] uppercase tracking-[1.5px] text-white/40 font-bold mb-1">Total Outstanding</p>
+          <p className="text-4xl font-black tracking-tight leading-none">{formatZAR(totalBalance)}</p>
           <p className="text-white/30 text-xs font-medium mt-1.5">
-            Across {CUSTOMER_RESTAURANTS.length} restaurant{CUSTOMER_RESTAURANTS.length !== 1 ? 's' : ''}
+            Across {CUSTOMER_RESTAURANTS.length} restaurant{CUSTOMER_RESTAURANTS.length !== 1 ? 's/shop' : '/shop'}
           </p>
         </div>
 
-        {/* Stats row */}
         <div className="relative z-10 grid grid-cols-2 gap-3">
-          <div
-            className="rounded-2xl p-3.5"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
+          <div className="rounded-2xl p-3.5" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex items-center gap-1.5 mb-2">
               <Store size={11} className="text-emerald-400" />
               <p className="text-[9px] uppercase tracking-widest text-white/40 font-black">Places</p>
             </div>
             <p className="text-2xl font-black text-white leading-none">{CUSTOMER_RESTAURANTS.length}</p>
           </div>
-          <div
-            className="rounded-2xl p-3.5"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
+          <div className="rounded-2xl p-3.5" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex items-center gap-1.5 mb-2">
-              <ShieldAlert size={11} className="text-orange-400" />
+              <ShieldAlert size={11} className={pendingCount > 0 ? 'text-orange-400' : 'text-white/40'} />
               <p className="text-[9px] uppercase tracking-widest text-white/40 font-black">Disputes</p>
             </div>
-            <p className="text-2xl font-black text-white leading-none">1</p>
+            <p className={`text-2xl font-black leading-none ${pendingCount > 0 ? 'text-orange-400' : 'text-white'}`}>
+              {pendingCount}
+            </p>
           </div>
         </div>
       </div>
@@ -94,87 +67,76 @@ const CustomerDashboard = () => {
       <div className="grid grid-cols-2 gap-3 mb-5">
         <button
           onClick={() => navigate('/customer/disputes')}
-          className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-gray-100 active:scale-95 transition-all text-left"
-          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+          className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 active:scale-95 transition-all text-left"
+          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', ...(pendingCount > 0 ? { borderColor: 'rgba(234,88,12,0.2)' } : {}) }}
         >
-          <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
-            <AlertCircle size={18} className="text-orange-500" />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            pendingCount > 0 ? 'bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20' : 'bg-gray-50 dark:bg-white/10 border border-gray-100 dark:border-white/10'
+          }`}>
+            <AlertCircle size={18} className={pendingCount > 0 ? 'text-orange-500' : 'text-gray-400 dark:text-white/30'} />
           </div>
           <div>
-            <p className="font-bold text-sm text-gray-900">Disputes</p>
-            <p className="text-[10px] text-gray-400 font-medium">1 Pending</p>
+            <p className="font-bold text-sm text-gray-900 dark:text-white">Disputes</p>
+            <p className={`text-[10px] font-medium ${pendingCount > 0 ? 'text-orange-500' : 'text-gray-400 dark:text-white/30'}`}>
+              {pendingCount > 0 ? `${pendingCount} Pending` : 'No disputes'}
+            </p>
           </div>
         </button>
 
         <button
           onClick={() => alert('Invite code copied!')}
-          className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-gray-100 active:scale-95 transition-all text-left"
+          className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 active:scale-95 transition-all text-left"
           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
         >
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
-            <LinkIcon size={18} className="text-emerald-600" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <LinkIcon size={18} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <p className="font-bold text-sm text-gray-900">Invite</p>
-            <p className="text-[10px] text-gray-400 font-medium">Share Code</p>
+            <p className="font-bold text-sm text-gray-900 dark:text-white">Invite</p>
+            <p className="text-[10px] text-gray-400 dark:text-white/30 font-medium">Share Code</p>
           </div>
         </button>
       </div>
 
       {/* ── Search ── */}
       <div className="relative mb-5">
-        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30" />
         <input
           type="text"
           placeholder="Search your tabs..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3.5 bg-white rounded-2xl text-sm font-medium text-gray-700 outline-none"
-          style={{ border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+          className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-white/5 rounded-2xl text-sm font-medium text-gray-700 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 outline-none border border-gray-100 dark:border-white/10"
         />
       </div>
 
       {/* ── Restaurant List ── */}
-      <p className="text-[10px] uppercase tracking-[0.3em] font-black text-gray-400 mb-3">
-        My Restaurants
-      </p>
-
+      <p className="text-[10px] uppercase tracking-[0.3em] font-black text-gray-400 dark:text-white/30 mb-3">My Tabs</p>
       <div className="space-y-3">
         {filteredRestaurants.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
-            <p className="text-sm text-gray-400 font-medium">No restaurants found</p>
+          <div className="bg-white dark:bg-white/5 rounded-2xl p-8 text-center border border-gray-100 dark:border-white/10">
+            <p className="text-sm text-gray-400 dark:text-white/30 font-medium">No restaurants or shops found</p>
           </div>
         ) : (
           filteredRestaurants.map(res => (
-            <button
-              key={res.id}
-              onClick={() => navigate(`/customer/restaurant/${res.id}`)}
-              className="w-full group relative overflow-hidden rounded-2xl bg-white border border-gray-100 active:scale-[0.98] transition-all text-left"
-              style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}
-            >
+            <button key={res.id} onClick={() => navigate(`/customer/restaurant/${res.id}`)}
+              className="w-full group relative overflow-hidden rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 active:scale-[0.98] transition-all text-left hover:border-gray-200 dark:hover:border-white/20">
               <div className="flex">
-                {/* Image */}
                 <div className="relative w-24 h-28 overflow-hidden flex-shrink-0">
-                  <img
-                    src={res.image}
-                    alt={res.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/20" />
+                  <img src={res.image} alt={res.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0">
-                      <h3 className="text-gray-900 font-bold text-sm leading-tight truncate">{res.name}</h3>
-                      <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-widest mt-0.5">{res.code}</p>
+                      <h3 className="text-gray-900 dark:text-white font-bold text-sm leading-tight truncate">{res.name}</h3>
+                      <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest mt-0.5">{res.code}</p>
                     </div>
-                    <ChevronRight size={15} className="text-gray-300 group-hover:text-emerald-500 transition-colors flex-shrink-0 mt-0.5" />
+                    <ChevronRight size={15} className="text-gray-300 dark:text-white/20 group-hover:text-emerald-500 transition-colors flex-shrink-0 mt-0.5" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-gray-900 tracking-tight">{formatZAR(res.balance)}</p>
-                    <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mt-0.5">Outstanding</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">{formatZAR(res.balance)}</p>
+                    <p className="text-[9px] text-gray-400 dark:text-white/30 uppercase font-black tracking-widest mt-0.5">Outstanding</p>
                   </div>
                 </div>
               </div>

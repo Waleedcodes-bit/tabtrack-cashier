@@ -36,7 +36,7 @@ const RestaurantView = () => {
 
   if (!restaurant) return (
     <CustomerLayout title="Not Found" showBack>
-      <div className="text-center py-20 text-gray-400 font-medium text-sm">Restaurant not found</div>
+      <div className="text-center py-20 text-gray-400 dark:text-white/30 font-medium text-sm">Restaurant not found</div>
     </CustomerLayout>
   );
 
@@ -45,7 +45,7 @@ const RestaurantView = () => {
   return (
     <CustomerLayout title={restaurant.name} showBack>
 
-      {/* Balance Card */}
+      {/* Balance Card — gradient stays dark regardless of theme */}
       <div
         className="rounded-2xl p-6 mb-5 relative overflow-hidden text-white"
         style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)' }}
@@ -84,68 +84,60 @@ const RestaurantView = () => {
           style={{ backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.12)' }}
         >
           <div>
-            <p className="font-bold text-sm text-orange-700">Rollover from {LAST_MONTH}</p>
-            <p className="text-[9px] text-orange-500 font-bold uppercase tracking-wider mt-0.5">
+            <p className="font-bold text-sm text-orange-700 dark:text-orange-400">Rollover from {LAST_MONTH}</p>
+            <p className="text-[9px] text-orange-500 dark:text-orange-400/60 font-bold uppercase tracking-wider mt-0.5">
               Carried forward from last month
             </p>
           </div>
-          <p className="font-black text-sm text-orange-700">{formatZAR(restaurant.rollover)}</p>
+          <p className="font-black text-sm text-orange-700 dark:text-orange-400">{formatZAR(restaurant.rollover)}</p>
         </div>
       )}
 
       {/* This Month's Orders */}
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">
+      <p className="text-[10px] font-black text-gray-400 dark:text-white/30 uppercase tracking-widest mb-3 ml-1">
         This Month's Orders
       </p>
 
       {restaurant.orders.length === 0 ? (
-        <div
-          className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-400 font-medium mb-4"
-        >
+        <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-8 text-center text-sm text-gray-400 dark:text-white/30 font-medium mb-4">
           No orders this month
         </div>
       ) : (
-        <div
-          className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4"
-          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-        >
+        <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden mb-4">
           {restaurant.orders.map((order, i) => (
             <div
               key={order.id}
               className={`flex justify-between items-center px-5 py-4 ${
-                i < restaurant.orders.length - 1 ? 'border-b border-gray-50' : ''
+                i < restaurant.orders.length - 1 ? 'border-b border-gray-50 dark:border-white/5' : ''
               }`}
             >
               <div>
-                <p className="font-bold text-sm text-gray-900">{order.name}</p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mt-0.5">
+                <p className="font-bold text-sm text-gray-900 dark:text-white">{order.name}</p>
+                <p className="text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-tighter mt-0.5">
                   {order.date}
                 </p>
               </div>
-              <p className="font-bold text-sm text-gray-900">{formatZAR(order.amount)}</p>
+              <p className="font-bold text-sm text-gray-900 dark:text-white">{formatZAR(order.amount)}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Summary */}
-      <div
-        className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-5"
-        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-      >
+      <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden mb-5">
         {restaurant.rollover > 0 && (
-          <div className="flex justify-between items-center px-5 py-3 border-b border-gray-50">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Rollover</p>
-            <p className="font-bold text-sm text-orange-600">{formatZAR(restaurant.rollover)}</p>
+          <div className="flex justify-between items-center px-5 py-3 border-b border-gray-50 dark:border-white/5">
+            <p className="text-xs font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider">Rollover</p>
+            <p className="font-bold text-sm text-orange-600 dark:text-orange-400">{formatZAR(restaurant.rollover)}</p>
           </div>
         )}
-        <div className="flex justify-between items-center px-5 py-3 border-b border-gray-50">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">This Month</p>
-          <p className="font-bold text-sm text-gray-900">{formatZAR(ordersTotal)}</p>
+        <div className="flex justify-between items-center px-5 py-3 border-b border-gray-50 dark:border-white/5">
+          <p className="text-xs font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider">This Month</p>
+          <p className="font-bold text-sm text-gray-900 dark:text-white">{formatZAR(ordersTotal)}</p>
         </div>
-        <div className="flex justify-between items-center px-5 py-4 bg-gray-50">
-          <p className="text-xs font-black text-gray-900 uppercase tracking-wider">Total Owed</p>
-          <p className="font-black text-sm text-[#0f2347]">{formatZAR(restaurant.balance)}</p>
+        <div className="flex justify-between items-center px-5 py-4 bg-gray-50 dark:bg-white/5">
+          <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wider">Total Owed</p>
+          <p className="font-black text-sm text-[#0f2347] dark:text-emerald-400">{formatZAR(restaurant.balance)}</p>
         </div>
       </div>
 

@@ -34,7 +34,7 @@ const RoleSelection = () => {
         {/* Cards */}
         <div className="space-y-3">
 
-          {/* Restaurant */}
+          {/* Restaurant / Shop */}
           <button
             onClick={() => navigate('/cashier/login')}
             className="w-full group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all active:scale-[0.98] text-left"
@@ -43,7 +43,7 @@ const RoleSelection = () => {
               <UtensilsCrossed size={20} className="text-emerald-400 group-hover:text-emerald-950 transition-colors" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white text-sm">Restaurant</p>
+              <p className="font-bold text-white text-sm">Restaurant / Shop</p>
               <p className="text-xs text-gray-500 mt-0.5">Manage debtors, tabs and payments</p>
             </div>
             <ArrowRight size={16} className="text-gray-600 group-hover:text-emerald-400 transition-colors" />
