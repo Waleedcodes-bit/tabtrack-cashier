@@ -1,5 +1,5 @@
 [build]
-  command = "CI=false npm run build"
+  command = "CI=false npm run build && cp build/app.html build/landing.html && mv build/index.html build/app.html && mv build/landing.html build/index.html"
   publish = "build"
   functions = "netlify/functions"
 
