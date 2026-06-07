@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { CheckCircle, ShieldX, Store, UserPlus, X } from 'lucide-react';
+import { CheckCircle, ShieldX, Store, UserPlus, X, Keyboard } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { supabase } from '../../lib/supabase';
 import { formatZAR } from '../../utils/format';
@@ -16,6 +16,9 @@ const Scan = () => {
   const [cameraError, setCameraError]       = useState('');
   const [loading, setLoading]               = useState(false);
   const [showDeclined, setShowDeclined]     = useState(false);
+  const [showManual, setShowManual]         = useState(false);
+  const [manualCode, setManualCode]         = useState('');
+  const [manualError, setManualError]       = useState('');
 
   const [cashierProfile, setCashierProfile] = useState(null);
   const [customerRow, setCustomerRow]       = useState(null);
@@ -62,51 +65,86 @@ const Scan = () => {
 
   useEffect(() => () => { stopCamera(); }, []);
 
+  // Core lookup — shared by QR scan and manual entry
+  const lookupCode = async (code) => {
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('id, business_name, code')
+      .eq('code', code.trim().toUpperCase())
+      .eq('role', 'owner')
+      .single();
+
+    if (profileErr || !profile) return null;
+    return profile;
+  };
+
   const handleQrResult = async (code) => {
     await stopCamera();
     setLoading(true);
     try {
-      const { data: profile, error: profileErr } = await supabase
-  .from('profiles')
-  .select('id, business_name, code')
-  .eq('code', code.trim())
-  .single();
+      const profile = await lookupCode(code);
 
-      if (profileErr || !profile) {
+      if (!profile) {
         setCameraError('QR code not recognised. Make sure you scan the cashier\'s QR code.');
-        setScanning(false);
         setLoading(false);
         return;
       }
 
-      setCashierProfile(profile);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/customer/login'); return; }
-
-      const { data: existing } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('auth_user_id', user.id)
-        .eq('owner_id', profile.id)
-        .single();
-
-      if (existing) {
-        setCustomerRow(existing);
-        if (existing.unsettled_previous_month) {
-          setBlockedBalance(existing.previous_month_balance || 0);
-          setStep('blocked');
-        } else {
-          setStep('order');
-        }
-      } else {
-        setStep('confirm');
-      }
+      await continueWithProfile(profile);
     } catch (err) {
       console.error('QR lookup error:', err);
       setCameraError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleManualSubmit = async () => {
+    const code = manualCode.trim().toUpperCase();
+    if (!code) { setManualError('Please enter a code.'); return; }
+    setManualError('');
+    setLoading(true);
+    try {
+      const profile = await lookupCode(code);
+      if (!profile) {
+        setManualError('Code not found. Double-check the code and try again.');
+        setLoading(false);
+        return;
+      }
+      setShowManual(false);
+      setManualCode('');
+      await continueWithProfile(profile);
+    } catch (err) {
+      console.error('Manual lookup error:', err);
+      setManualError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const continueWithProfile = async (profile) => {
+    setCashierProfile(profile);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { navigate('/customer/login'); return; }
+
+    const { data: existing } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .eq('owner_id', profile.id)
+      .single();
+
+    if (existing) {
+      setCustomerRow(existing);
+      if (existing.unsettled_previous_month) {
+        setBlockedBalance(existing.previous_month_balance || 0);
+        setStep('blocked');
+      } else {
+        setStep('order');
+      }
+    } else {
+      setStep('confirm');
     }
   };
 
@@ -142,7 +180,6 @@ const Scan = () => {
 
       setCustomerRow(inserted);
 
-      // Notify cashier that a new customer linked
       await sendPushNotification({
         userId: cashierProfile.id,
         title:  'New customer linked',
@@ -182,7 +219,6 @@ const Scan = () => {
 
       if (error) throw error;
 
-      // Local notification store (for in-app)
       addNotification({
         type:   'order',
         title:  'New order submitted',
@@ -190,7 +226,6 @@ const Scan = () => {
         amount: formatZAR(parseFloat(amount)),
       });
 
-      // Push notification to cashier
       await sendPushNotification({
         userId: cashierProfile.id,
         title:  'New order added',
@@ -254,16 +289,57 @@ const Scan = () => {
               </button>
             )
             : (
-              <button onClick={startCamera}
-                className="w-full py-4 rounded-2xl font-bold text-white text-sm active:scale-[0.98] transition-all"
-                style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)', boxShadow: '0 6px 20px rgba(13,33,55,0.2)' }}>
-                Open Camera & Scan
-              </button>
+              <>
+                <button onClick={startCamera}
+                  className="w-full py-4 rounded-2xl font-bold text-white text-sm active:scale-[0.98] transition-all mb-3"
+                  style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)', boxShadow: '0 6px 20px rgba(13,33,55,0.2)' }}>
+                  Open Camera & Scan
+                </button>
+
+                {/* Manual entry toggle */}
+                <button
+                  onClick={() => { setShowManual(v => !v); setManualError(''); }}
+                  className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-white"
+                >
+                  <Keyboard size={15} />
+                  Enter Code Manually
+                </button>
+
+                {showManual && (
+                  <div className="w-full mt-4 space-y-3">
+                    <div>
+                      <label className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-wider block mb-2 ml-1">
+                        Cashier Code
+                      </label>
+                      <input
+                        type="text"
+                        value={manualCode}
+                        onChange={e => setManualCode(e.target.value.toUpperCase())}
+                        onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+                        placeholder="e.g. 2CF87"
+                        maxLength={10}
+                        className="w-full px-4 py-4 bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 outline-none text-xl font-black text-center tracking-[0.2em] text-gray-900 dark:text-white placeholder:text-gray-300 dark:placeholder:text-white/20 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/5 transition-all uppercase"
+                      />
+                    </div>
+                    {manualError && (
+                      <p className="text-xs text-red-500 font-semibold text-center">{manualError}</p>
+                    )}
+                    <button
+                      onClick={handleManualSubmit}
+                      disabled={!manualCode.trim() || loading}
+                      className="w-full py-4 rounded-2xl font-bold text-white text-sm active:scale-[0.98] transition-all disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)' }}
+                    >
+                      {loading ? 'Looking up…' : 'Find Restaurant'}
+                    </button>
+                  </div>
+                )}
+              </>
             )
           }
 
           <p className="text-xs text-gray-400 dark:text-white/30 font-medium text-center mt-4">
-            Point your camera at the cashier's QR code
+            Point your camera at the cashier's QR code, or enter the code manually
           </p>
         </div>
       </CustomerLayout>

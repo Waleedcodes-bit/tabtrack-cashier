@@ -32,6 +32,7 @@ const getRelativeLabel = (dateStr) => {
 const Dashboard = () => {
   const navigate = useNavigate();
 
+  const [businessName, setBusinessName] = useState('');
   const [stats, setStats] = useState({
     totalOutstanding: 0,
     pendingAmount: 0,
@@ -46,6 +47,15 @@ const Dashboard = () => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+
+    // ── Fetch business name from profile ──
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_name')
+      .eq('id', user.id)
+      .single();
+
+    setBusinessName(profile?.business_name || '');
 
     // Get all customers for this owner
     const { data: customers } = await supabase
@@ -137,6 +147,18 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <div className="flex flex-col gap-4 lg:gap-5">
+
+        {/* ── Business Name Header ── */}
+        {businessName ? (
+          <div>
+            <p className="text-[10px] uppercase tracking-[1.5px] text-gray-400 dark:text-white/30 mb-0.5">
+              Welcome back
+            </p>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+              {businessName}
+            </h1>
+          </div>
+        ) : null}
 
         {/* ── Stats card ── */}
         <div className="rounded-2xl overflow-hidden text-white"

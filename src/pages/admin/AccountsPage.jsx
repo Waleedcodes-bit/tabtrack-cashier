@@ -53,17 +53,23 @@ export default function AccountsPage() {
 
   useEffect(() => {
     fetchAccounts();
-    fetchCustomerCount();
   }, []);
 
   async function fetchAccounts() {
     setLoading(true);
 
-    // Fetch all owner profiles
-    const { data: owners, error: ownersError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("role", "owner");
+    // All queries fired in parallel — no per-owner loops
+    const [
+      { data: owners, error: ownersError },
+      { count: custCount },
+      { data: allCustomers },
+      { data: allOrders },
+    ] = await Promise.all([
+      supabase.from("profiles").select("*").eq("role", "owner"),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
+      supabase.from("customers").select("id, owner_id, balance"),
+      supabase.from("orders").select("id, customer_id, amount"),
+    ]);
 
     if (ownersError) {
       console.error("Error fetching owners:", ownersError);
@@ -71,68 +77,44 @@ export default function AccountsPage() {
       return;
     }
 
-    // For each owner, fetch their customer count and open tabs (orders)
-    const enriched = await Promise.all(
-      (owners || []).map(async (owner) => {
-        // Count customers belonging to this owner
-        const { count: custCount } = await supabase
-          .from("customers")
-          .select("id", { count: "exact", head: true })
-          .eq("owner_id", owner.id);
+    setCustomerCount(custCount || 0);
 
-        // Count open tabs (orders) for this owner's customers
-        const { data: ownerCustomers } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("owner_id", owner.id);
+    // Build lookup maps from bulk data — zero extra queries
+    const customersByOwner = {};
+    (allCustomers || []).forEach(c => {
+      if (!c.owner_id) return;
+      if (!customersByOwner[c.owner_id]) customersByOwner[c.owner_id] = [];
+      customersByOwner[c.owner_id].push(c.id);
+    });
 
-        const customerIds = (ownerCustomers || []).map((c) => c.id);
+    const custIdToOwner = {};
+    (allCustomers || []).forEach(c => { if (c.owner_id) custIdToOwner[c.id] = c.owner_id; });
 
-        let openTabs = 0;
-        let revenue = 0;
+    const tabsByOwner = {};
+    const revenueByOwner = {};
+    (allOrders || []).forEach(o => {
+      const ownerId = custIdToOwner[o.customer_id];
+      if (!ownerId) return;
+      tabsByOwner[ownerId] = (tabsByOwner[ownerId] || 0) + 1;
+      revenueByOwner[ownerId] = (revenueByOwner[ownerId] || 0) + (o.amount || 0);
+    });
 
-        if (customerIds.length > 0) {
-          const { count: tabCount } = await supabase
-            .from("orders")
-            .select("id", { count: "exact", head: true })
-            .in("customer_id", customerIds);
-
-          const { data: orderData } = await supabase
-            .from("orders")
-            .select("amount")
-            .in("customer_id", customerIds);
-
-          openTabs = tabCount || 0;
-          revenue = (orderData || []).reduce((sum, o) => sum + (o.amount || 0), 0);
-        }
-
-        return {
-          id: owner.id,
-          name: owner.business_name || owner.owner_name || "Unnamed Business",
-          owner: owner.owner_name || "Unknown",
-          email: owner.email || "",
-          type: owner.business_type || "shop",
-          customers: custCount || 0,
-          openTabs,
-          revenue,
-          status: owner.status || "active",
-          fee: owner.fee || 0,
-          feeStatus: owner.fee_status || "paid",
-        };
-      })
-    );
+    const enriched = (owners || []).map(owner => ({
+      id: owner.id,
+      name: owner.business_name || owner.owner_name || "Unnamed Business",
+      owner: owner.owner_name || "Unknown",
+      email: owner.email || "",
+      type: owner.business_type || "shop",
+      customers: (customersByOwner[owner.id] || []).length,
+      openTabs: tabsByOwner[owner.id] || 0,
+      revenue: revenueByOwner[owner.id] || 0,
+      status: owner.status || "active",
+      fee: owner.fee || 0,
+      feeStatus: owner.fee_status || "paid",
+    }));
 
     setAccounts(enriched);
     setLoading(false);
-  }
-
-  async function fetchCustomerCount() {
-    const { count } = await supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "customer");
-
-    setCustomerCount(count || 0);
   }
 
   const filtered = accounts.filter((a) => {
@@ -173,12 +155,12 @@ export default function AccountsPage() {
       {/* ── Summary stats ── */}
       <div className="stat-grid section-gap">
         {[
-          { label: "TOTAL CASHIERS", value: accounts.length,                                        icon: "cashier", color: "#1db87a", bg: "rgba(29,184,122,0.1)"  },
-          { label: "RESTAURANTS",    value: accounts.filter((c) => c.type === "restaurant").length, icon: "store",   color: "#3b82f6", bg: "rgba(59,130,246,0.1)"  },
-          { label: "SHOPS",          value: accounts.filter((c) => c.type === "shop").length,       icon: "cashier", color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
-          { label: "CUSTOMERS",      value: customerCount,                                           icon: "users",   color: "#eab308", bg: "rgba(234,179,8,0.1)"  },
-          { label: "SUSPENDED",      value: accounts.filter((a) => a.status === "suspended").length, icon: "shield",  color: "#e53535", bg: "rgba(229,53,53,0.1)", cls: "red" },
-          { label: "OVERDUE FEES",   value: accounts.filter((a) => a.feeStatus === "overdue").length, icon: "alert",   color: "#e53535", bg: "rgba(229,53,53,0.1)", cls: "red" },
+          { label: "TOTAL CASHIERS", value: accounts.length,                                         icon: "cashier", color: "#1db87a", bg: "rgba(29,184,122,0.1)"  },
+          { label: "RESTAURANTS",    value: accounts.filter((c) => c.type === "restaurant").length,  icon: "store",   color: "#3b82f6", bg: "rgba(59,130,246,0.1)"  },
+          { label: "SHOPS",          value: accounts.filter((c) => c.type === "shop").length,        icon: "cashier", color: "#8b5cf6", bg: "rgba(139,92,246,0.1)"  },
+          { label: "CUSTOMERS",      value: customerCount,                                            icon: "users",   color: "#eab308", bg: "rgba(234,179,8,0.1)"   },
+          { label: "SUSPENDED",      value: accounts.filter((a) => a.status === "suspended").length, icon: "shield",  color: "#e53535", bg: "rgba(229,53,53,0.1)",  cls: "red" },
+          { label: "OVERDUE FEES",   value: accounts.filter((a) => a.feeStatus === "overdue").length, icon: "alert",  color: "#e53535", bg: "rgba(229,53,53,0.1)",  cls: "red" },
         ].map((s, i) => (
           <div key={i} className="stat-card">
             <div className="stat-icon" style={{ background: s.bg, color: s.color }}>
@@ -294,9 +276,6 @@ export default function AccountsPage() {
           )}
         </div>
       </div>
-
-      {/* ── Customer accounts table ── */}
-      
 
       {/* ── Edit fee modal ── */}
       {showModal && selected && (

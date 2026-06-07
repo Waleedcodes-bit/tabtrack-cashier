@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Share2, Mail, MessageCircle, Link2, Check, X, Download, Loader } from 'lucide-react';
+import { Share2, Mail, MessageCircle, Link2, Check, X, Download, Loader, Copy } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { supabase } from '../../lib/supabase';
 
@@ -23,6 +23,7 @@ const QRPage = () => {
   const hiddenQrRef = useRef(null);
   const [showSheet, setShowSheet] = useState(false);
   const [copied, setCopied]       = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [profile, setProfile]     = useState({ businessName: '', qrValue: '' });
 
@@ -158,17 +159,24 @@ const QRPage = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyCode = async () => {
+    if (!profile.qrValue) return;
+    await navigator.clipboard.writeText(profile.qrValue);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
   return (
     <MainLayout title="Restaurant QR" showBack>
       <div className="max-w-sm mx-auto flex flex-col items-center">
 
         <p className="text-sm text-gray-400 font-medium mb-8 text-center px-2">
-          Customers scan this to link their account and log credit orders.
+          Customers scan this QR code or enter your code manually to link their account.
         </p>
 
         {/* ── QR Display Card ── */}
         <div
-          className="w-full rounded-3xl p-8 flex flex-col items-center relative overflow-hidden mb-6"
+          className="w-full rounded-3xl p-8 flex flex-col items-center relative overflow-hidden mb-4"
           style={{
             background: 'linear-gradient(145deg, #0d2137 0%, #0a3328 50%, #0f4d3a 100%)',
             boxShadow: '0 20px 60px rgba(10,33,55,0.35)',
@@ -205,19 +213,50 @@ const QRPage = () => {
           </div>
 
           {/* Business name */}
-          <p className="text-white font-black text-lg tracking-tight font-['Plus_Jakarta_Sans'] relative z-10">
+          <p className="text-white font-black text-lg tracking-tight relative z-10">
             {loading ? '…' : profile.businessName}
           </p>
-          <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest mt-1 relative z-10">
+          <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest mt-1 relative z-10 mb-5">
             Scan to open a tab
           </p>
+
+          {/* ── Code display ── */}
+          <div
+            className="relative z-10 w-full rounded-2xl px-5 py-4 flex items-center justify-between"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            <div>
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+                Manual Entry Code
+              </p>
+              <p className="text-2xl font-black text-white tracking-[0.18em]">
+                {loading ? '…' : (profile.qrValue || '—')}
+              </p>
+              <p className="text-[10px] text-white/30 font-medium mt-1">
+                Customers can type this if they can't scan
+              </p>
+            </div>
+            <button
+              onClick={handleCopyCode}
+              disabled={loading || !profile.qrValue}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                background: codeCopied ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.1)',
+                color: codeCopied ? '#34d399' : 'rgba(255,255,255,0.7)',
+                border: `1px solid ${codeCopied ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              }}
+            >
+              {codeCopied ? <Check size={13} /> : <Copy size={13} />}
+              {codeCopied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
         </div>
 
         {/* ── Share Button ── */}
         <button
           onClick={handleShare}
           disabled={loading || !profile.qrValue}
-          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] hover:opacity-90 disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] hover:opacity-90 disabled:opacity-50 mt-2"
           style={{ background: 'linear-gradient(135deg, #0f2347, #0a3328)' }}
         >
           <Share2 size={17} />
@@ -238,7 +277,7 @@ const QRPage = () => {
             style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.15)' }}
           >
             <div className="flex items-center justify-between mb-6">
-              <p className="font-black text-gray-900 text-base font-['Plus_Jakarta_Sans']">Share via</p>
+              <p className="font-black text-gray-900 text-base">Share via</p>
               <button
                 onClick={() => setShowSheet(false)}
                 className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
@@ -248,8 +287,6 @@ const QRPage = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-4">
-
-              {/* WhatsApp */}
               <button
                 onClick={() => { handleWhatsApp(); setShowSheet(false); }}
                 className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors active:scale-95"
@@ -260,7 +297,6 @@ const QRPage = () => {
                 <span className="text-[11px] font-bold text-gray-700">WhatsApp</span>
               </button>
 
-              {/* Email */}
               <button
                 onClick={() => { handleEmail(); setShowSheet(false); }}
                 className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors active:scale-95"
@@ -271,23 +307,17 @@ const QRPage = () => {
                 <span className="text-[11px] font-bold text-gray-700">Email</span>
               </button>
 
-              {/* Copy Link */}
               <button
                 onClick={handleCopy}
                 className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors active:scale-95"
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${copied ? 'bg-emerald-500' : 'bg-gray-200'}`}>
-                  {copied
-                    ? <Check size={22} className="text-white" />
-                    : <Link2 size={22} className="text-gray-500" />
-                  }
+                  {copied ? <Check size={22} className="text-white" /> : <Link2 size={22} className="text-gray-500" />}
                 </div>
                 <span className="text-[11px] font-bold text-gray-700">{copied ? 'Copied!' : 'Copy Link'}</span>
               </button>
-
             </div>
 
-            {/* Save image */}
             <button
               onClick={() => { handleDownload(); setShowSheet(false); }}
               className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"

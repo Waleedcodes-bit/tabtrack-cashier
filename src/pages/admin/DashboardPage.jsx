@@ -87,7 +87,7 @@ export default function DashboardPage() {
   const [search, setSearch]   = useState("");
   const navigate              = useNavigate();
 
-  const [stats, setStats]         = useState({ total: 0, active: 0, suspended: 0, customers: 0, revenue: 0, pendingFees: 0, openIssues: 0 });
+  const [stats, setStats]         = useState({ total: 0, active: 0, suspended: 0, customers: 0, cashiers: 0, revenue: 0, pendingFees: 0, openIssues: 0 });
   const [cashiers, setCashiers]   = useState([]);
   const [activity, setActivity]   = useState([]);
   const [overdueCount, setOverdueCount] = useState(0);
@@ -100,47 +100,65 @@ export default function DashboardPage() {
   async function fetchAll() {
     setLoading(true);
 
-    // Owners
-    const { data: owners } = await supabase.from("profiles").select("*").eq("role", "owner");
-    // Customers count
-    const { count: custCount } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer");
-    // Monthly revenue
-    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
-    const { data: payments } = await supabase.from("payments").select("amount").gte("created_at", startOfMonth.toISOString());
-    const revenue = (payments || []).reduce((s, p) => s + (p.amount || 0), 0);
-    // Open issues from activity logs
-    const { count: issueCount } = await supabase.from("activity_logs").select("id", { count: "exact", head: true }).eq("type", "alert");
-    // Recent activity
-    const { data: logs } = await supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(5);
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // All queries fired in parallel — no per-owner loops
+    const [
+      { data: owners },
+      { count: custCount },
+      { data: payments },
+      { count: issueCount },
+      { data: logs },
+      { data: allCustomers },
+      { data: allOrders },
+    ] = await Promise.all([
+      supabase.from("profiles").select("*").eq("role", "owner"),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
+      supabase.from("payments").select("amount").gte("created_at", startOfMonth.toISOString()),
+      supabase.from("activity_logs").select("id", { count: "exact", head: true }).eq("type", "alert"),
+      supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(5),
+      supabase.from("customers").select("id, owner_id, balance"),
+      supabase.from("orders").select("id, customer_id"),
+    ]);
 
     const ownerList = owners || [];
+    const revenue = (payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+
+    // Build lookup maps from bulk data — zero extra queries
+    const customersByOwner = {};
+    const balanceByOwner = {};
+    (allCustomers || []).forEach(c => {
+      if (!c.owner_id) return;
+      customersByOwner[c.owner_id] = (customersByOwner[c.owner_id] || 0) + 1;
+      balanceByOwner[c.owner_id] = (balanceByOwner[c.owner_id] || 0) + (c.balance || 0);
+    });
+
+    const custIdToOwner = {};
+    (allCustomers || []).forEach(c => { if (c.owner_id) custIdToOwner[c.id] = c.owner_id; });
+
+    const tabsByOwner = {};
+    (allOrders || []).forEach(o => {
+      const ownerId = custIdToOwner[o.customer_id];
+      if (!ownerId) return;
+      tabsByOwner[ownerId] = (tabsByOwner[ownerId] || 0) + 1;
+    });
+
     const activeCount    = ownerList.filter(o => o.status !== "suspended").length;
     const suspendedCount = ownerList.filter(o => o.status === "suspended").length;
     const overdueOwners  = ownerList.filter(o => o.fee_status === "overdue").length;
     const pendingFees    = ownerList.filter(o => o.fee_status === "overdue").reduce((s, o) => s + (o.fee || 0), 0);
 
-    // Enrich cashier rows
-    const enriched = await Promise.all(ownerList.slice(0, 10).map(async (o) => {
-      const { count: cc } = await supabase.from("customers").select("id", { count: "exact", head: true }).eq("owner_id", o.id);
-      const { data: oc }  = await supabase.from("customers").select("id").eq("owner_id", o.id);
-      const ids = (oc || []).map(c => c.id);
-      let openTabs = 0, owed = 0;
-      if (ids.length > 0) {
-        const { count: tc } = await supabase.from("orders").select("id", { count: "exact", head: true }).in("customer_id", ids);
-        const { data: custRows } = await supabase.from("customers").select("balance").in("id", ids);
-        openTabs = tc || 0;
-        owed = (custRows || []).reduce((s, c) => s + (c.balance || 0), 0);
-      }
-      return {
-        id: o.id,
-        name: o.business_name || "Unnamed",
-        status: o.status || "active",
-        customers: cc || 0,
-        openTabs,
-        owed,
-        joined: o.created_at ? new Date(o.created_at).toLocaleDateString("en-ZA") : "—",
-        lastActivity: o.updated_at || o.created_at,
-      };
+    const enriched = ownerList.slice(0, 10).map(o => ({
+      id: o.id,
+      name: o.business_name || "Unnamed",
+      status: o.status || "active",
+      customers: customersByOwner[o.id] || 0,
+      openTabs: tabsByOwner[o.id] || 0,
+      owed: balanceByOwner[o.id] || 0,
+      joined: o.created_at ? new Date(o.created_at).toLocaleDateString("en-ZA") : "—",
+      lastActivity: o.updated_at || o.created_at,
     }));
 
     setStats({ total: ownerList.length + (custCount || 0), active: activeCount, suspended: suspendedCount, customers: custCount || 0, cashiers: ownerList.length, revenue, pendingFees, openIssues: issueCount || 0 });
@@ -284,4 +302,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
