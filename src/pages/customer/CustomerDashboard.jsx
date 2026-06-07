@@ -7,19 +7,28 @@ import { supabase } from '../../lib/supabase';
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery]       = useState('');
-  const [restaurants, setRestaurants]       = useState([]);
-  const [pendingCount, setPendingCount]     = useState(0);
-  const [loading, setLoading]               = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [restaurants, setRestaurants] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [firstName, setFirstName] = useState('');
 
-  // ── Fetch all restaurants this customer is linked to ──────────────────────
   const fetchRestaurants = useCallback(async () => {
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // Get all customers rows where auth_user_id = logged-in user
+    // Fetch customer's own first name
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    const name = myProfile?.full_name?.split(' ')[0] || '';
+    setFirstName(name);
+
     const { data: customerRows, error } = await supabase
       .from('customers')
       .select('id, name, code, balance, owner_id')
@@ -33,7 +42,6 @@ const CustomerDashboard = () => {
       return;
     }
 
-    // Get owner profile info (business_name, code) for each linked restaurant
     const ownerIds = customerRows.map(r => r.owner_id).filter(Boolean);
 
     const { data: owners } = await supabase
@@ -56,7 +64,6 @@ const CustomerDashboard = () => {
     setLoading(false);
   }, []);
 
-  // ── Fetch pending disputes count ──────────────────────────────────────────
   const fetchDisputeCount = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -85,18 +92,13 @@ const CustomerDashboard = () => {
     fetchDisputeCount();
   }, [fetchRestaurants, fetchDisputeCount]);
 
-  const totalBalance        = restaurants.reduce((sum, r) => sum + r.balance, 0);
+  const totalBalance = restaurants.reduce((sum, r) => sum + r.balance, 0);
   const filteredRestaurants = restaurants.filter(r =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ── Header title: single restaurant name, or "My Tabs" for multiple ──
-  const headerTitle = restaurants.length === 1
-    ? restaurants[0].name
-    : restaurants.length > 1
-      ? 'My Tabs'
-      : '';
+  const headerTitle = firstName || 'Navoq';
 
   return (
     <CustomerLayout headerTitle={headerTitle}>

@@ -108,8 +108,8 @@ export default function AdminAuth() {
 
   // ── Admin back button ALWAYS goes to the website (no app role selection) ──
   const handleBack = () => {
-    window.location.href = '/';
-  };
+  window.location.href = '/welcome';
+};
 
   return (
     <>

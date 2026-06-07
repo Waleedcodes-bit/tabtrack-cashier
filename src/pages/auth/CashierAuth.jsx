@@ -233,12 +233,12 @@ export default function AuthPage() {
   // ?from=web  → came from the static website  → hard redirect back to site
   // (no param) → came from the app RoleSelection → SPA navigate to '/'
   const handleBack = () => {
-    if (searchParams.get('from') === 'web') {
-      window.location.href = '/';
-    } else {
-      navigate('/');
-    }
-  };
+  if (searchParams.get('from') === 'web') {
+    window.location.href = '/welcome';
+  } else {
+    navigate('/role-selection');
+  }
+};
 
   const handleSuccess = () => navigate('/dashboard');
 
