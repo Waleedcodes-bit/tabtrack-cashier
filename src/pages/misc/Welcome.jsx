@@ -41,29 +41,29 @@ const Welcome = () => {
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      // Chrome Android — native prompt available
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      return;
-    }
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    return;
+  }
 
-    const ua = navigator.userAgent;
-    const isIOS = /iphone|ipad|ipod/i.test(ua);
-    const isAndroid = /android/i.test(ua);
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid = /android/i.test(ua);
 
-    if (isIOS) {
-      setInstallPlatform('ios');
-      setShowInstallModal(true);
-    } else if (isAndroid) {
-      setInstallPlatform('android');
-      setShowInstallModal(true);
-    } else {
-      // Desktop — send to app
-      navigate('/cashier/login');
-    }
-  };
+  if (isIOS) {
+    setInstallPlatform('ios');
+    setShowInstallModal(true);
+  } else if (isAndroid) {
+    setInstallPlatform('android');
+    setShowInstallModal(true);
+  } else {
+    // Desktop — show instructions instead of redirecting
+    setInstallPlatform('android');
+    setShowInstallModal(true);
+  }
+};
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });

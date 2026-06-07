@@ -123,16 +123,21 @@ function App() {
   const savedRole = localStorage.getItem('navoq_role');
 
   const HomeRoute = () => {
-    if (session && profile) {
-      if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
-      if (profile.role === 'customer') return <Navigate to="/customer/dashboard" replace />;
-      if (profile.role === 'admin')    return <Navigate to="/admin/dashboard" replace />;
-    }
-    if (savedRole === 'owner')    return <Navigate to="/cashier/login" replace />;
-    if (savedRole === 'customer') return <Navigate to="/customer/login" replace />;
-    if (savedRole === 'admin')    return <Navigate to="/admin/login" replace />;
-    return <Navigate to="/welcome" replace />;
-  };
+  const isInstalled = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true; // iOS
+
+  if (session && profile) {
+    if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
+    if (profile.role === 'customer') return <Navigate to="/customer/dashboard" replace />;
+    if (profile.role === 'admin')    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  // Installed PWA, not logged in → RoleSelection
+  if (isInstalled) return <RoleSelection />;
+
+  // Browser, not logged in → landing page
+  return <Navigate to="/welcome" replace />;
+};
 
   return (
     <ThemeProvider>
