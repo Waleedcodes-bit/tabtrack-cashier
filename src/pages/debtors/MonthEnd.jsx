@@ -8,19 +8,17 @@ import { supabase } from '../../lib/supabase';
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const MONTH_NAME    = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-// ── Month End page ────────────────────────────────────────────────────────────
 const MonthEnd = () => {
   const navigate = useNavigate();
 
-  const [customers, setCustomers]           = useState([]);
-  const [orders, setOrders]                 = useState([]);
-  const [loading, setLoading]               = useState(true);
+  const [customers, setCustomers]               = useState([]);
+  const [orders, setOrders]                     = useState([]);
+  const [payments, setPayments]                 = useState({});
+  const [loading, setLoading]                   = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [amount, setAmount]                 = useState('');
-  const [payments, setPayments]             = useState({}); // { customerId: amountPaid }
-  const [closing, setClosing]               = useState(false);
+  const [amount, setAmount]                     = useState('');
+  const [closing, setClosing]                   = useState(false);
 
-  // ── Fetch owner's customers + this month's orders ─────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true);
 
@@ -37,30 +35,44 @@ const MonthEnd = () => {
 
     const customerIds = (custData || []).map(c => c.id);
 
-    let orderData = [];
-    if (customerIds.length > 0) {
-      const { data: od, error: ordErr } = await supabase
-        .from('orders')
-        .select('id, customer_id, name, amount, date')
-        .in('customer_id', customerIds)
-        .gte('date', `${CURRENT_MONTH}-01`)
-        .order('date', { ascending: false });
+    let orderData   = [];
+    let paymentData = [];
 
-      if (ordErr) console.error('fetchOrders:', ordErr);
-      orderData = od || [];
+    if (customerIds.length > 0) {
+      const [ordRes, payRes] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('id, customer_id, name, amount, date')
+          .in('customer_id', customerIds)
+          .gte('date', `${CURRENT_MONTH}-01`)
+          .order('date', { ascending: false }),
+        supabase
+          .from('payments')
+          .select('customer_id, amount')
+          .in('customer_id', customerIds)
+          .eq('month', CURRENT_MONTH),
+      ]);
+
+      orderData   = ordRes.data || [];
+      paymentData = payRes.data || [];
     }
+
+    const paymentsMap = {};
+    paymentData.forEach(p => {
+      paymentsMap[p.customer_id] = (paymentsMap[p.customer_id] || 0) + p.amount;
+    });
 
     setCustomers(custData || []);
     setOrders(orderData);
+    setPayments(paymentsMap);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   const getMonthlyTotal  = id => orders.filter(o => o.customer_id === id).reduce((s, o) => s + o.amount, 0);
   const getMonthlyOrders = id => orders.filter(o => o.customer_id === id);
-  const isPaid           = id => payments[id] !== undefined;
+  const isPaid           = id => (payments[id] || 0) >= getMonthlyTotal(id) && getMonthlyTotal(id) > 0;
 
   const paidAmount      = parseFloat(amount) || 0;
   const selectedBalance = selectedCustomer ? getMonthlyTotal(selectedCustomer.id) : 0;
@@ -69,14 +81,9 @@ const MonthEnd = () => {
   const unpaidCount = customers.filter(c => !isPaid(c.id) && getMonthlyTotal(c.id) > 0).length;
   const canClose    = unpaidCount === 0 && customers.filter(c => getMonthlyTotal(c.id) > 0).length > 0;
 
-  // ── Confirm payment for selected customer ─────────────────────────────────
   const handleConfirmPayment = async () => {
     if (!selectedCustomer || paidAmount <= 0) return;
 
-    const hasRollover  = rollover > 0;
-    const newBalance   = hasRollover ? rollover : 0;
-
-    // Insert payment record
     await supabase.from('payments').insert({
       customer_id: selectedCustomer.id,
       amount:      paidAmount,
@@ -84,37 +91,30 @@ const MonthEnd = () => {
       month:       CURRENT_MONTH,
     });
 
-    // Update customer balance
-    await supabase
-      .from('customers')
-      .update({ balance: newBalance })
-      .eq('id', selectedCustomer.id);
-
-    setPayments(prev => ({ ...prev, [selectedCustomer.id]: paidAmount }));
+    setPayments(prev => ({
+      ...prev,
+      [selectedCustomer.id]: (prev[selectedCustomer.id] || 0) + paidAmount,
+    }));
     setSelectedCustomer(null);
     setAmount('');
   };
 
-  // ── Close month ───────────────────────────────────────────────────────────
   const handleClose = async () => {
     if (!canClose) return;
     setClosing(true);
 
-    // For each customer with a balance this month, update rollover fields
     const updates = customers
       .filter(c => getMonthlyTotal(c.id) > 0)
       .map(c => {
-        const paid        = payments[c.id] || 0;
-        const monthTotal  = getMonthlyTotal(c.id);
-        const leftover    = Math.max(0, monthTotal - paid);
-        const hasRollover = leftover > 0;
+        const paid       = payments[c.id] || 0;
+        const monthTotal = getMonthlyTotal(c.id);
+        const leftover   = Math.max(0, monthTotal - paid);
 
         return supabase
           .from('customers')
           .update({
-            unsettled_previous_month: hasRollover,
+            unsettled_previous_month: leftover > 0,
             previous_month_balance:   leftover,
-            balance:                  hasRollover ? leftover : 0,
           })
           .eq('id', c.id);
       });
@@ -125,12 +125,10 @@ const MonthEnd = () => {
     navigate('/dashboard');
   };
 
-  // ── Payment Panel ─────────────────────────────────────────────────────────
   const PaymentPanel = () => {
     const monthOrders = getMonthlyOrders(selectedCustomer.id);
     return (
       <div className="flex flex-col gap-4">
-        {/* Account Card */}
         <div className="rounded-3xl p-5 relative overflow-hidden"
           style={{ background: 'linear-gradient(145deg, #0f2347 0%, #0a3328 50%, #0f4d3a 100%)', boxShadow: '0 16px 48px rgba(10,22,40,0.2)' }}>
           <div className="absolute top-0 left-6 right-6 h-px"
@@ -159,7 +157,6 @@ const MonthEnd = () => {
           </div>
         </div>
 
-        {/* Orders this month */}
         {monthOrders.length > 0 && (
           <div>
             <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest mb-2 ml-1">Orders This Month</p>
@@ -177,12 +174,11 @@ const MonthEnd = () => {
           </div>
         )}
 
-        {/* Amount Input */}
         <div>
           <div className="flex items-center justify-between mb-2 ml-1">
             <label className="text-sm font-semibold text-gray-400 dark:text-white/40 uppercase tracking-wider">Amount Paid (ZAR)</label>
             <button onClick={() => setAmount(String(selectedBalance))}
-              className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+              className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1 rounded-lg">
               Pay Full
             </button>
           </div>
@@ -224,7 +220,6 @@ const MonthEnd = () => {
     );
   };
 
-  // ── Overview Content ──────────────────────────────────────────────────────
   const OverviewContent = () => (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl p-4 flex items-center gap-3"
@@ -312,15 +307,14 @@ const MonthEnd = () => {
     </div>
   );
 
-  // ── Sidebar Summary ───────────────────────────────────────────────────────
   const SidebarSummary = () => (
     <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-5 sticky top-4">
       <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest mb-4">Month Summary</p>
       <div className="space-y-3">
         {[
-          { label: 'Total accounts', value: customers.filter(c => getMonthlyTotal(c.id) > 0).length, color: 'text-gray-900 dark:text-white' },
-          { label: 'Settled',        value: customers.filter(c => isPaid(c.id) && getMonthlyTotal(c.id) > 0).length, color: 'text-emerald-600 dark:text-emerald-400' },
-          { label: 'Unpaid',         value: unpaidCount, color: 'text-orange-500 dark:text-orange-400' },
+          { label: 'Total accounts', value: customers.filter(c => getMonthlyTotal(c.id) > 0).length,                          color: 'text-gray-900 dark:text-white'        },
+          { label: 'Settled',        value: customers.filter(c => isPaid(c.id) && getMonthlyTotal(c.id) > 0).length,          color: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Unpaid',         value: unpaidCount,                                                                        color: 'text-orange-500 dark:text-orange-400'   },
         ].map(({ label, value, color }, i) => (
           <div key={label} className={`flex justify-between items-center py-2 ${i < 2 ? 'border-b border-gray-50 dark:border-white/5' : ''}`}>
             <p className="text-sm text-gray-500 dark:text-white/40 font-medium">{label}</p>
@@ -337,7 +331,6 @@ const MonthEnd = () => {
     </div>
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
   if (selectedCustomer) {
     return (
       <MainLayout title={`${MONTH_NAME} Close`} showBack>

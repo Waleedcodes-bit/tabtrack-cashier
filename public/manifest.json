@@ -2,7 +2,7 @@
   "short_name": "Navoq",
   "name": "Navoq",
   "description": "Track credit, manage debtors, and settle accounts.",
-  "start_url": "/cashier/login",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

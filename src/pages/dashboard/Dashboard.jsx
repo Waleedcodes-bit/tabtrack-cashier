@@ -20,13 +20,22 @@ const getStartOfWeek = () => {
   return monday;
 };
 
-const getRelativeLabel = (dateStr) => {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((today - d) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
+const getRelativeLabel = (ts) => {
+  const d         = new Date(ts);
+  const today     = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(); yesterday.setDate(today.getDate() - 1); yesterday.setHours(0, 0, 0, 0);
+
+  const timeStr = d.toLocaleTimeString('en-ZA', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone: 'Africa/Johannesburg',
+  });
+
+  if (d >= today)     return `Today · ${timeStr}`;
+  if (d >= yesterday) return `Yesterday · ${timeStr}`;
+  return d.toLocaleDateString('en-ZA', {
+    weekday: 'short', day: 'numeric', month: 'short',
+    timeZone: 'Africa/Johannesburg',
+  }) + ` · ${timeStr}`;
 };
 
 const Dashboard = () => {
@@ -36,8 +45,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState({
     totalOutstanding: 0,
     pendingAmount: 0,
-    activeDebtors: 0,
-    settledDebtors: 0,
+    totalDebtors: 0,
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +56,6 @@ const Dashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // ── Fetch business name from profile ──
     const { data: profile } = await supabase
       .from('profiles')
       .select('business_name')
@@ -57,7 +64,6 @@ const Dashboard = () => {
 
     setBusinessName(profile?.business_name || '');
 
-    // Get all customers for this owner
     const { data: customers } = await supabase
       .from('customers')
       .select('id, balance')
@@ -67,69 +73,55 @@ const Dashboard = () => {
     const customerIds  = customerList.map(c => c.id);
 
     const totalOutstanding = customerList.reduce((s, c) => s + (c.balance || 0), 0);
-    const activeDebtors    = customerList.filter(c => (c.balance || 0) > 0).length;
-    const settledDebtors   = customerList.filter(c => (c.balance || 0) === 0).length;
+    const totalDebtors     = customerList.length;
 
-    // Pending amount: unpaid orders this month
-    const currentMonth = new Date().toISOString().slice(0, 7);
     let pendingAmount = 0;
-
     if (customerIds.length > 0) {
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('customer_id')
-        .in('customer_id', customerIds)
-        .eq('month', currentMonth);
-
-      const paidIds = new Set((payments || []).map(p => p.customer_id));
-
-      const { data: orders } = await supabase
+      const { data: disputedOrders } = await supabase
         .from('orders')
-        .select('amount, customer_id')
+        .select('amount')
         .in('customer_id', customerIds)
-        .gte('date', `${currentMonth}-01`);
+        .eq('disputed', true)
+        .eq('dispute_status', 'pending');
 
-      pendingAmount = (orders || [])
-        .filter(o => !paidIds.has(o.customer_id))
-        .reduce((s, o) => s + (o.amount || 0), 0);
+      pendingAmount = (disputedOrders || []).reduce((s, o) => s + (o.amount || 0), 0);
     }
 
-    setStats({ totalOutstanding, pendingAmount, activeDebtors, settledDebtors });
+    setStats({ totalOutstanding, pendingAmount, totalDebtors });
 
-    // Recent activity this week
     if (customerIds.length > 0) {
       const startOfWeek = getStartOfWeek().toISOString().split('T')[0];
 
       const { data: recentPayments } = await supabase
-        .from('payments')
-        .select('customer_id, amount, date, customers(name)')
-        .in('customer_id', customerIds)
-        .gte('date', startOfWeek)
-        .order('date', { ascending: false });
+  .from('payments')
+  .select('customer_id, amount, date, created_at, customers(name)')
+  .in('customer_id', customerIds)
+  .gte('date', startOfWeek)
+  .order('created_at', { ascending: false });
 
-      const { data: recentOrders } = await supabase
-        .from('orders')
-        .select('customer_id, name, amount, date, customers(name)')
-        .in('customer_id', customerIds)
-        .gte('date', startOfWeek)
-        .order('date', { ascending: false });
+const { data: recentOrders } = await supabase
+  .from('orders')
+  .select('customer_id, name, amount, date, created_at, customers(name)')
+  .in('customer_id', customerIds)
+  .gte('date', startOfWeek)
+  .order('created_at', { ascending: false });
 
       const activity = [
-        ...(recentPayments || []).map(p => ({
-          type: 'payment',
-          name: p.customers?.name || 'Customer',
-          amount: p.amount,
-          when: getRelativeLabel(p.date),
-          date: p.date,
-        })),
-        ...(recentOrders || []).map(o => ({
-          type: 'order',
-          name: o.customers?.name || o.name || 'Customer',
-          amount: o.amount,
-          when: getRelativeLabel(o.date),
-          date: o.date,
-        })),
-      ].sort((a, b) => new Date(b.date) - new Date(a.date));
+  ...(recentPayments || []).map(p => ({
+    type:   'payment',
+    name:   p.customers?.name || 'Customer',
+    amount: p.amount,
+    when:   getRelativeLabel(p.created_at),
+    date:   p.created_at,
+  })),
+  ...(recentOrders || []).map(o => ({
+    type:   'order',
+    name:   o.customers?.name || o.name || 'Customer',
+    amount: o.amount,
+    when:   getRelativeLabel(o.created_at),
+    date:   o.created_at,
+  })),
+].sort((a, b) => new Date(b.date) - new Date(a.date));
 
       setRecentActivity(activity);
     }
@@ -140,15 +132,14 @@ const Dashboard = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const quickLinks = [
-    { label: 'Invite Link', sub: 'Share your shop link',      icon: Link2,  color: '#fce4ec', iconColor: '#c62828', path: '/invite' },
-    { label: 'QR Code',     sub: 'View & print your QR code', icon: QrCode, color: '#e8eaf6', iconColor: '#283593', path: '/qr'     },
+    { label: 'Invite Link', icon: Link2,  color: '#fce4ec', iconColor: '#c62828', path: '/invite' },
+    { label: 'QR Code',     icon: QrCode, color: '#e8eaf6', iconColor: '#283593', path: '/qr'     },
   ];
 
   return (
     <MainLayout>
       <div className="flex flex-col gap-4 lg:gap-5">
 
-        {/* ── Business Name Header ── */}
         {businessName ? (
           <div>
             <p className="text-[10px] uppercase tracking-[1.5px] text-gray-400 dark:text-white/30 mb-0.5">
@@ -160,7 +151,6 @@ const Dashboard = () => {
           </div>
         ) : null}
 
-        {/* ── Stats card ── */}
         <div className="rounded-2xl overflow-hidden text-white"
           style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)' }}>
           <div className="flex justify-between items-start px-5 md:px-7 pt-5 md:pt-7 pb-4">
@@ -182,20 +172,17 @@ const Dashboard = () => {
             style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {[
               { label: 'Pending',       value: loading ? '—' : formatZAR(stats.pendingAmount), icon: Clock, orange: true },
-              { label: 'Total Debtors', value: loading ? '—' : stats.activeDebtors,            icon: Users },
-              { label: 'Settled',       value: loading ? '—' : stats.settledDebtors,           check: true },
-            ].map(({ label, value, icon: Icon, check, orange }, i) => (
+              { label: 'Total Debtors', value: loading ? '—' : stats.totalDebtors,             icon: Users },
+            ].map(({ label, value, icon: Icon, orange }, i) => (
               <div key={label} className="flex-1 flex items-center gap-2 md:gap-3"
                 style={{
-                  borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                  paddingRight: i < 2 ? 16 : 0,
-                  marginRight:  i < 2 ? 16 : 0,
+                  borderRight: i < 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                  paddingRight: i < 1 ? 16 : 0,
+                  marginRight:  i < 1 ? 16 : 0,
                 }}>
                 <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: orange ? 'rgba(251,146,60,0.15)' : 'rgba(74,222,128,0.15)' }}>
-                  {check
-                    ? <span className="text-emerald-400 text-sm font-bold">✓</span>
-                    : Icon && <Icon size={13} color={orange ? '#fb923c' : '#4ade80'} />}
+                  <Icon size={13} color={orange ? '#fb923c' : '#4ade80'} />
                 </div>
                 <div>
                   <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-white/40">{label}</p>
@@ -206,7 +193,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Month End CTA ── */}
         <div className="rounded-2xl overflow-hidden flex items-center justify-between" style={{ background: '#0f172a' }}>
           <div className="w-1.5 self-stretch flex-shrink-0" style={{ background: 'linear-gradient(180deg, #34d399, #0f4d3a)' }} />
           <div className="flex items-center gap-3 flex-1 px-4 py-4 md:py-5">
@@ -223,7 +209,6 @@ const Dashboard = () => {
           </button>
         </div>
 
-        {/* ── Quick links ── */}
         <div className="grid grid-cols-2 gap-3 md:gap-4">
           {quickLinks.map(({ label, icon: Icon, color, iconColor, path }) => (
             <button key={label} onClick={() => navigate(path)}
@@ -240,7 +225,6 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* ── Recent Activity ── */}
         <div className="bg-white dark:bg-[#0d1f2d] rounded-2xl border border-gray-100 dark:border-white/10 p-4 md:p-5">
           <p className="font-bold text-gray-900 dark:text-white text-sm mb-3 md:mb-4">Recent Activity</p>
           {loading ? (
