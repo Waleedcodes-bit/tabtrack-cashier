@@ -640,7 +640,7 @@ const Welcome = () => {
               </div>
             </div>
             <div className="wl-footer-bottom">
-              <span>© 2025 Navoq. A product of <strong>Nidaam Labs (Pty) Ltd</strong>. All rights reserved.</span>
+              <span>© 2026 Navoq. A product of <strong>Nidaam Labs (Pty) Ltd</strong>. All rights reserved.</span>
               <span>Built in South Africa 🇿🇦</span>
             </div>
           </div>

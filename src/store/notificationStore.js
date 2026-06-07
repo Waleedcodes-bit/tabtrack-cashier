@@ -1,40 +1,40 @@
 import { supabase } from '../lib/supabase';
 
-// ─── Cashier notifications ─────────────────────────────────────────────────
-
+// ─── Notifications (both cashier and customer) ─────────────────────────────
 export const addNotification = async ({ user_id, type, title, body, amount }) => {
   const { error } = await supabase
     .from('notifications')
     .insert({ user_id, type, title, body, amount });
-
   if (error) console.error('addNotification error:', error);
 };
 
-// ─── Shared edit requests (cashier → customer) ─────────────────────────────
-let editListeners = [];
-let editRequests  = [];
-let nextEditId    = 100;
+// ─── Edit requests (cashier → customer) — persisted to Supabase ───────────
+export const addEditRequest = async ({
+  orderId,
+  customerId,
+  oldAmount,
+  newAmount,
+}) => {
+  const { data, error } = await supabase
+    .from('order_edits')
+    .insert({
+      order_id:    orderId,
+      customer_id: customerId,
+      old_amount:  oldAmount,
+      new_amount:  newAmount,
+      status:      'pending',
+    })
+    .select()
+    .single();
 
-export const getEditRequests = () => editRequests;
-
-export const addEditRequest = (req) => {
-  const newReq = {
-    id: nextEditId++,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    ...req,
-  };
-  editRequests = [newReq, ...editRequests];
-  editListeners.forEach(fn => fn(editRequests));
-  return newReq;
+  if (error) console.error('addEditRequest error:', error);
+  return data;
 };
 
-export const resolveEditRequest = (id, status) => {
-  editRequests = editRequests.map(r => r.id === id ? { ...r, status } : r);
-  editListeners.forEach(fn => fn(editRequests));
-};
-
-export const subscribeEdits = (fn) => {
-  editListeners.push(fn);
-  return () => { editListeners = editListeners.filter(l => l !== fn); };
+export const resolveEditRequest = async (id, status) => {
+  const { error } = await supabase
+    .from('order_edits')
+    .update({ status })
+    .eq('id', id);
+  if (error) console.error('resolveEditRequest error:', error);
 };

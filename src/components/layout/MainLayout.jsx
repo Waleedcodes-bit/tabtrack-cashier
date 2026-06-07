@@ -267,7 +267,7 @@ const MainLayout = ({ children, title, showBack = false, rightAction }) => {
               <h1 className="text-base md:text-lg font-bold text-gray-900 dark:text-white leading-tight font-['Plus_Jakarta_Sans']">{title}</h1>
             ) : (
               <h1 className="text-lg md:text-2xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight font-['Plus_Jakarta_Sans']">
-                The Green Bistro
+                Dashboard
               </h1>
             )}
           </div>

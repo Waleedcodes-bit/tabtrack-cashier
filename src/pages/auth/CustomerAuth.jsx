@@ -202,7 +202,7 @@ export default function CustomerAuth() {
   if (searchParams.get('from') === 'web') {
     window.location.href = '/welcome';
   } else {
-    navigate('/role-selection');
+    navigate('/');
   }
 };
 

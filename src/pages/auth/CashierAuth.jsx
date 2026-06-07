@@ -236,7 +236,7 @@ export default function AuthPage() {
   if (searchParams.get('from') === 'web') {
     window.location.href = '/welcome';
   } else {
-    navigate('/role-selection');
+    navigate('/RoleSelection');
   }
 };
 

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import { Trash2, FileText, ChevronRight, AlertTriangle } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
-import { MOCK_CUSTOMERS, MOCK_ORDERS } from '../../data/mockData';
 import { formatZAR } from '../../utils/format';
 
 const DeleteModal = ({ name, onConfirm, onCancel }) => (
@@ -31,11 +31,38 @@ const DebtorDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [showDelete, setShowDelete] = useState(false);
+  const [customer, setCustomer] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const customer  = MOCK_CUSTOMERS.find(c => c.id === id);
-  const orders    = MOCK_ORDERS.filter(o => o.customerId === id);
-  const owing     = customer?.balance > 0;
-  const isBlocked = customer?.unsettledPreviousMonth;
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      const { data: ords } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_id', id)
+        .order('date', { ascending: false });
+
+      setCustomer(cust || null);
+      setOrders(ords || []);
+      setLoading(false);
+    };
+    fetchCustomer();
+  }, [id]);
+
+  if (loading) return (
+    <MainLayout title="Loading..." showBack>
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-gray-400 dark:text-white/30">Loading...</p>
+      </div>
+    </MainLayout>
+  );
 
   if (!customer) return (
     <MainLayout title="Not Found" showBack>
@@ -45,7 +72,9 @@ const DebtorDetail = () => {
     </MainLayout>
   );
 
-  const initials = customer.name.split(' ').map(n => n[0]).join('');
+  const owing     = customer.balance > 0;
+  const isBlocked = customer.unsettled_previous_month;
+  const initials  = customer.name.split(' ').map(n => n[0]).join('');
 
   return (
     <>
@@ -63,7 +92,7 @@ const DebtorDetail = () => {
                 <div>
                   <p className="text-sm font-black text-orange-600 dark:text-orange-400">Previous month unsettled</p>
                   <p className="text-sm text-orange-500/70 dark:text-orange-400/60 font-medium mt-0.5">
-                    {formatZAR(customer.previousMonthBalance)} still outstanding from last month.
+                    {formatZAR(customer.previous_month_balance)} still outstanding from last month.
                     This account is blocked from adding new orders.
                   </p>
                 </div>

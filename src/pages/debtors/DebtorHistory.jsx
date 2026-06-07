@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calendar, Pencil, X, Check } from 'lucide-react';
-
+import { Calendar, Pencil, X, Check, Clock } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
-import { MOCK_CUSTOMERS, MOCK_ORDERS } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
 import { formatZAR } from '../../utils/format';
 import { addNotification, addEditRequest } from '../../store/notificationStore';
 
@@ -12,18 +11,56 @@ const LAST_MONTH    = new Date(new Date().setMonth(new Date().getMonth() - 1)).t
 
 const DebtorHistory = () => {
   const { id } = useParams();
-  const customer = MOCK_CUSTOMERS.find(c => c.id === id);
-  const [orders, setOrders] = useState(MOCK_ORDERS.filter(o => o.customerId === id));
+
+  const [customer, setCustomer]         = useState(null);
+  const [orders, setOrders]             = useState([]);
+  const [pendingEdits, setPendingEdits] = useState({}); // { orderId: newAmount }
+  const [loading, setLoading]           = useState(true);
   const [editingOrder, setEditingOrder] = useState(null);
-  const [newAmount, setNewAmount] = useState('');
-  const [monthFilter, setMonthFilter] = useState('this');
-  const [specificDay, setSpecificDay] = useState('');
+  const [newAmount, setNewAmount]       = useState('');
+  const [saving, setSaving]             = useState(false);
+  const [monthFilter, setMonthFilter]   = useState('this');
+  const [specificDay, setSpecificDay]   = useState('');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+
+    const { data: cust } = await supabase
+      .from('customers')
+      .select('id, name, code, balance, auth_user_id, owner_id')
+      .eq('id', id)
+      .single();
+
+    const { data: ords } = await supabase
+      .from('orders')
+      .select('id, name, amount, date, customer_id')
+      .eq('customer_id', id)
+      .order('date', { ascending: false });
+
+    // Fetch any pending edits for this customer's orders
+    const { data: edits } = await supabase
+      .from('order_edits')
+      .select('order_id, new_amount, status')
+      .eq('customer_id', id)
+      .eq('status', 'pending');
+
+    // Build a map of orderId → pending new_amount
+    const editMap = {};
+    (edits || []).forEach(e => { editMap[e.order_id] = e.new_amount; });
+
+    setCustomer(cust || null);
+    setOrders(ords || []);
+    setPendingEdits(editMap);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filterOrders = (list) => {
-    if (monthFilter === 'this') return list.filter(o => o.date.startsWith(CURRENT_MONTH));
-    if (monthFilter === 'last') return list.filter(o => o.date.startsWith(LAST_MONTH));
+    if (monthFilter === 'this') return list.filter(o => o.date?.startsWith(CURRENT_MONTH));
+    if (monthFilter === 'last') return list.filter(o => o.date?.startsWith(LAST_MONTH));
     if (monthFilter === 'day' && specificDay) return list.filter(o => o.date === specificDay);
-    return list; // 'all'
+    return list;
   };
 
   const filteredOrders = filterOrders(orders).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -39,37 +76,64 @@ const DebtorHistory = () => {
   const monthTotal = month => groupedOrders[month].reduce((sum, o) => sum + o.amount, 0);
   const grandTotal = filteredOrders.reduce((sum, o) => sum + o.amount, 0);
 
-  const openEdit = (order) => { setEditingOrder(order); setNewAmount(String(order.amount)); };
+  const openEdit = (order) => {
+    // Don't allow editing an order that already has a pending edit
+    if (pendingEdits[order.id] !== undefined) return;
+    setEditingOrder(order);
+    setNewAmount(String(order.amount));
+  };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     const oldAmount = editingOrder.amount;
     const updated   = parseFloat(newAmount);
     if (isNaN(updated) || updated === oldAmount) { setEditingOrder(null); return; }
 
-    setOrders(prev => prev.map(o =>
-      o.id === editingOrder.id ? { ...o, amount: updated } : o
-    ));
+    setSaving(true);
 
-    addNotification({
-      type: 'edit',
-      title: 'Order amount updated',
-      body: `${editingOrder.name} changed from ${formatZAR(oldAmount)} to ${formatZAR(updated)}`,
-      amount: formatZAR(updated),
-    });
-
-    addEditRequest({
-      orderId:        editingOrder.id,
-      orderName:      editingOrder.name,
-      orderDate:      editingOrder.date,
-      restaurantName: 'The Corner Bistro',
-      customerId:     id,
-      customerName:   customer.name,
+    // 1. Create order_edit record in Supabase (customer must accept)
+    await addEditRequest({
+      orderId:    editingOrder.id,
+      customerId: id,
       oldAmount,
-      newAmount:      updated,
+      newAmount:  updated,
     });
 
+    // 2. Notify the owner
+    if (customer?.owner_id) {
+      await addNotification({
+        user_id: customer.owner_id,
+        type:    'edit',
+        title:   'Order edit requested',
+        body:    `${editingOrder.name} — change from ${formatZAR(oldAmount)} to ${formatZAR(updated)}`,
+        amount:  formatZAR(updated),
+      });
+    }
+
+    // 3. Notify the customer
+    if (customer?.auth_user_id) {
+      await addNotification({
+        user_id: customer.auth_user_id,
+        type:    'edit',
+        title:   'Order amount edited',
+        body:    `${editingOrder.name} was changed to ${formatZAR(updated)} — please review`,
+        amount:  formatZAR(updated),
+      });
+    }
+
+    // 4. Update local pending state immediately — no refetch needed
+    setPendingEdits(prev => ({ ...prev, [editingOrder.id]: updated }));
+
+    setSaving(false);
     setEditingOrder(null);
   };
+
+  if (loading) return (
+    <MainLayout title="Loading..." showBack>
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-gray-400 dark:text-white/30">Loading...</p>
+      </div>
+    </MainLayout>
+  );
 
   if (!customer) return (
     <MainLayout title="Not Found" showBack>
@@ -108,6 +172,17 @@ const DebtorHistory = () => {
                 <p className="text-lg font-black text-white">{formatZAR(grandTotal)}</p>
               </div>
             </div>
+
+            {/* Pending edits notice */}
+            {Object.keys(pendingEdits).length > 0 && (
+              <div className="flex items-start gap-3 rounded-2xl px-4 py-3"
+                style={{ backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.15)' }}>
+                <Clock size={15} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                  {Object.keys(pendingEdits).length} order edit{Object.keys(pendingEdits).length > 1 ? 's' : ''} waiting for customer approval
+                </p>
+              </div>
+            )}
 
             {/* Filter tabs */}
             <div className="flex flex-wrap gap-2">
@@ -171,31 +246,80 @@ const DebtorHistory = () => {
 
                   <div className="rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 overflow-hidden"
                     style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                    {groupedOrders[month].map((order, i) => (
-                      <div key={order.id}
-                        className={`flex items-center gap-4 px-5 py-4 ${
-                          i < groupedOrders[month].length - 1 ? 'border-b border-gray-50 dark:border-white/5' : ''
-                        }`}>
-                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-black text-gray-500 dark:text-white/40">
-                            {new Date(order.date).getDate()}
-                          </span>
+                    {groupedOrders[month].map((order, i) => {
+                      const pendingAmount = pendingEdits[order.id];
+                      const hasPending    = pendingAmount !== undefined;
+
+                      return (
+                        <div key={order.id}
+                          className={`flex items-center gap-4 px-5 py-4 ${
+                            i < groupedOrders[month].length - 1 ? 'border-b border-gray-50 dark:border-white/5' : ''
+                          } ${hasPending ? 'bg-orange-50/40 dark:bg-orange-500/5' : ''}`}>
+
+                          {/* Date badge */}
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            hasPending
+                              ? 'bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20'
+                              : 'bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10'
+                          }`}>
+                            {hasPending
+                              ? <Clock size={13} className="text-orange-500 dark:text-orange-400" />
+                              : <span className="text-xs font-black text-gray-500 dark:text-white/40">
+                                  {new Date(order.date).getDate()}
+                                </span>
+                            }
+                          </div>
+
+                          {/* Name + status */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{order.name}</p>
+                            {hasPending ? (
+                              <p className="text-[10px] font-black text-orange-500 dark:text-orange-400 uppercase tracking-wider mt-0.5">
+                                Awaiting customer approval
+                              </p>
+                            ) : (
+                              <p className="text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider mt-0.5">
+                                Ref #{order.id.slice(0, 5).toUpperCase()}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Amount — show old + new if pending */}
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {hasPending ? (
+                              <div className="text-right">
+                                <p className="text-xs font-bold text-gray-400 dark:text-white/30 line-through">
+                                  {formatZAR(order.amount)}
+                                </p>
+                                <p className="text-sm font-black text-orange-500 dark:text-orange-400">
+                                  {formatZAR(pendingAmount)}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-sm font-bold text-gray-700 dark:text-white">
+                                {formatZAR(order.amount)}
+                              </p>
+                            )}
+
+                            {/* Edit button — disabled if pending */}
+                            <button
+                              onClick={() => openEdit(order)}
+                              disabled={hasPending}
+                              title={hasPending ? 'Edit pending customer approval' : 'Edit amount'}
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                                hasPending
+                                  ? 'bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 cursor-not-allowed'
+                                  : 'bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-100 dark:hover:border-blue-500/20'
+                              }`}>
+                              {hasPending
+                                ? <Clock size={13} className="text-orange-400 dark:text-orange-400" />
+                                : <Pencil size={13} className="text-gray-400 dark:text-white/30" />
+                              }
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{order.name}</p>
-                          <p className="text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider mt-0.5">
-                            Ref #{order.id.slice(0, 5).toUpperCase()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <p className="text-sm font-bold text-gray-700 dark:text-white">{formatZAR(order.amount)}</p>
-                          <button onClick={() => openEdit(order)}
-                            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-100 dark:hover:border-blue-500/20 transition-all">
-                            <Pencil size={13} className="text-gray-400 dark:text-white/30" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))
@@ -244,13 +368,12 @@ const DebtorHistory = () => {
               </button>
               <button
                 onClick={handleSaveEdit}
-                disabled={!newAmount || parseFloat(newAmount) === editingOrder.amount}
+                disabled={saving || !newAmount || parseFloat(newAmount) === editingOrder.amount}
                 className={`py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all
-                  ${newAmount && parseFloat(newAmount) !== editingOrder.amount
+                  ${!saving && newAmount && parseFloat(newAmount) !== editingOrder.amount
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20 cursor-not-allowed'}`}
-              >
-                <Check size={15} /> Save & Notify
+                    : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20 cursor-not-allowed'}`}>
+                <Check size={15} /> {saving ? 'Saving…' : 'Save & Notify'}
               </button>
             </div>
           </div>

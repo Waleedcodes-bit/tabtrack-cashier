@@ -1,5 +1,5 @@
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+/* Only load what you actually use, with font-display:swap for speed */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap&font-display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,13 +9,15 @@ body {
   font-family: 'Inter', sans-serif;
   background: #EEF2F7;
 }
+
 * {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
 
-input {
+input,
+textarea {
   -webkit-user-select: text;
   user-select: text;
 }
