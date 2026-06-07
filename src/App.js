@@ -124,7 +124,7 @@ function App() {
 
   const HomeRoute = () => {
   const isInstalled = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true; // iOS
+    || window.navigator.standalone === true;
 
   if (session && profile) {
     if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
@@ -132,10 +132,7 @@ function App() {
     if (profile.role === 'admin')    return <Navigate to="/admin/dashboard" replace />;
   }
 
-  // Installed PWA, not logged in → RoleSelection
   if (isInstalled) return <RoleSelection />;
-
-  // Browser, not logged in → landing page
   return <Navigate to="/welcome" replace />;
 };
 
