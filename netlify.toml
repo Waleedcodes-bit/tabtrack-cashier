@@ -4,99 +4,118 @@
   functions = "netlify/functions"
 
 [[redirects]]
-  from = "/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
   from = "/cashier/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/customer/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/admin/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/dashboard"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/dashboard/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/debtors"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/debtors/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/debtor/*"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/history"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/invite"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/settings"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/qr"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/profile"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/terms"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/privacy"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/notifications"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/month-end"
   to = "/app.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/add-debtor"
   to = "/app.html"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
