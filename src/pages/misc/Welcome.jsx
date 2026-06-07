@@ -6,6 +6,8 @@ const Welcome = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [installPlatform, setInstallPlatform] = useState('');
   const observerRef = useRef(null);
 
   // Nav scroll
@@ -40,10 +42,25 @@ const Welcome = () => {
 
   const handleInstall = async () => {
     if (deferredPrompt) {
+      // Chrome Android — native prompt available
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
       setDeferredPrompt(null);
+      return;
+    }
+
+    const ua = navigator.userAgent;
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isAndroid = /android/i.test(ua);
+
+    if (isIOS) {
+      setInstallPlatform('ios');
+      setShowInstallModal(true);
+    } else if (isAndroid) {
+      setInstallPlatform('android');
+      setShowInstallModal(true);
     } else {
+      // Desktop — send to app
       navigate('/cashier/login');
     }
   };
@@ -67,6 +84,23 @@ const Welcome = () => {
         /* Fade animations */
         .w-fade-hidden { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
         .w-fade-visible { opacity: 1; transform: translateY(0); }
+
+        /* INSTALL MODAL */
+        .wl-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 20px; }
+        .wl-modal { background: #0f1f16; border: 1px solid rgba(29,184,122,0.2); border-radius: 24px 24px 20px 20px; padding: 32px 28px 28px; width: 100%; max-width: 440px; position: relative; }
+        .wl-modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.08); border: none; color: #8fa98f; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; line-height: 1; transition: background 0.2s; }
+        .wl-modal-close:hover { background: rgba(255,255,255,0.14); }
+        .wl-modal-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+        .wl-modal-sub { font-size: 13px; color: #8fa98f; margin-bottom: 24px; }
+        .wl-modal-steps { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+        .wl-modal-step { display: flex; align-items: flex-start; gap: 14px; }
+        .wl-modal-step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(29,184,122,0.15); border: 1px solid rgba(29,184,122,0.3); color: #1db87a; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+        .wl-modal-step-text { font-size: 14px; color: #c8dcc8; line-height: 1.5; }
+        .wl-modal-step-text strong { color: #fff; font-weight: 600; }
+        .wl-modal-icon-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .wl-modal-icon-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(29,184,122,0.1); border: 1px solid rgba(29,184,122,0.2); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: #1db87a; font-weight: 600; }
+        .wl-modal-btn { width: 100%; padding: 13px; background: #1db87a; color: #040d07; border: none; border-radius: 50px; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: background 0.2s; }
+        .wl-modal-btn:hover { background: #22d98e; }
 
         /* NAV */
         .wl-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(8,15,11,0.88); backdrop-filter: blur(18px); border-bottom: 1px solid transparent; transition: border-color 0.3s; }
@@ -316,15 +350,71 @@ const Welcome = () => {
 
       <div className="wl-root">
 
+        {/* INSTALL MODAL */}
+        {showInstallModal && (
+          <div className="wl-modal-overlay" onClick={() => setShowInstallModal(false)}>
+            <div className="wl-modal" onClick={e => e.stopPropagation()}>
+              <button className="wl-modal-close" onClick={() => setShowInstallModal(false)}>×</button>
+              <div className="wl-modal-title">Install Navoq</div>
+              {installPlatform === 'ios' ? (
+                <>
+                  <div className="wl-modal-sub">Follow these steps in Safari to add Navoq to your home screen.</div>
+                  <div className="wl-modal-steps">
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">1</div>
+                      <div className="wl-modal-step-text">
+                        Tap the <strong>Share</strong> button at the bottom of Safari
+                        <div className="wl-modal-icon-row">
+                          <span className="wl-modal-icon-badge">⬆ Share</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">2</div>
+                      <div className="wl-modal-step-text">Scroll down and tap <strong>"Add to Home Screen"</strong></div>
+                    </div>
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">3</div>
+                      <div className="wl-modal-step-text">Tap <strong>Add</strong> in the top right — done!</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="wl-modal-sub">Follow these steps in Chrome to install Navoq on your device.</div>
+                  <div className="wl-modal-steps">
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">1</div>
+                      <div className="wl-modal-step-text">
+                        Tap the <strong>3-dot menu</strong> in the top right of Chrome
+                        <div className="wl-modal-icon-row">
+                          <span className="wl-modal-icon-badge">⋮ Menu</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">2</div>
+                      <div className="wl-modal-step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></div>
+                    </div>
+                    <div className="wl-modal-step">
+                      <div className="wl-modal-step-num">3</div>
+                      <div className="wl-modal-step-text">Tap <strong>Add</strong> to confirm — Navoq will appear on your home screen.</div>
+                    </div>
+                  </div>
+                </>
+              )}
+              <button className="wl-modal-btn" onClick={() => setShowInstallModal(false)}>Got it</button>
+            </div>
+          </div>
+        )}
+
         {/* NAV */}
         <nav className={`wl-nav${scrolled ? ' scrolled' : ''}`}>
           <div className="wl-nav-inner">
-            <a className="wl-nav-logo" href="#hero">
-              <span>Navoq</span>
-            </a>
+            <a className="wl-nav-logo" href="#hero"><span>Navoq</span></a>
             <ul className="wl-nav-links">
               {['features','how','portals','pricing'].map(id => (
-                <li key={id}><button onClick={() => scrollTo(id)}>{id.charAt(0).toUpperCase() + id.slice(1).replace('how','How it works').replace('features','Features').replace('portals','Portals').replace('pricing','Pricing')}</button></li>
+                <li key={id}><button onClick={() => scrollTo(id)}>{id === 'how' ? 'How it works' : id.charAt(0).toUpperCase() + id.slice(1)}</button></li>
               ))}
             </ul>
             <div className="wl-nav-actions">
@@ -351,16 +441,9 @@ const Welcome = () => {
             <div className="wl-hero-grid" />
           </div>
           <div className="wl-hero-inner">
-            <div className="wl-hero-badge w-fade">
-              <span className="wl-badge-dot" />
-              Digital Credit Management
-            </div>
-            <h1 className="wl-hero-headline w-fade">
-              Track. Settle.<br /><em>Done.</em>
-            </h1>
-            <p className="wl-hero-sub w-fade">
-              Navoq lets restaurants and shops manage customer credit tabs digitally — no paper, no disputes, no chasing. Customers see their balance in real time.
-            </p>
+            <div className="wl-hero-badge w-fade"><span className="wl-badge-dot" />Digital Credit Management</div>
+            <h1 className="wl-hero-headline w-fade">Track. Settle.<br /><em>Done.</em></h1>
+            <p className="wl-hero-sub w-fade">Navoq lets restaurants and shops manage customer credit tabs digitally — no paper, no disputes, no chasing. Customers see their balance in real time.</p>
             <div className="wl-hero-cta w-fade">
               <button className="wl-btn-primary lg" onClick={() => scrollTo('download')}>
                 Download the App
@@ -378,19 +461,12 @@ const Welcome = () => {
           </div>
           <div className="wl-hero-mockup">
             <div className="wl-mockup-card">
-              <div className="wl-mockup-header">
-                <div className="wl-mh-dot" />
-                <span>TOTAL OUTSTANDING</span>
-                <div className="wl-mh-live"><span className="wl-live-dot" />LIVE</div>
-              </div>
+              <div className="wl-mockup-header"><div className="wl-mh-dot" /><span>TOTAL OUTSTANDING</span><div className="wl-mh-live"><span className="wl-live-dot" />LIVE</div></div>
               <div className="wl-mockup-amount">R 1,970.50</div>
               <div className="wl-mockup-sub">Across all tabs</div>
               <div className="wl-mockup-row">
                 {[['PENDING','R 0,00'],['DEBTORS','3'],['SETTLED','1']].map(([label, val], i) => (
-                  <div key={i} className="wl-mockup-pill">
-                    <span className="wl-pill-label">{label}</span>
-                    <span className={`wl-pill-val${i===2?' green':''}`}>{val}</span>
-                  </div>
+                  <div key={i} className="wl-mockup-pill"><span className="wl-pill-label">{label}</span><span className={`wl-pill-val${i===2?' green':''}`}>{val}</span></div>
                 ))}
               </div>
             </div>
@@ -411,7 +487,7 @@ const Welcome = () => {
             <div className="wl-features-grid">
               {[
                 { icon: <><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></>, title: 'Track Credit', desc: 'Create and manage customer credit tabs digitally. Every transaction logged, timestamped, and visible to both parties.' },
-                { icon: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>, title: 'Manage Debtors', desc: 'See all your customers in one place. Know who owes what, when tabs were opened, and who\'s overdue at a glance.' },
+                { icon: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>, title: 'Manage Debtors', desc: "See all your customers in one place. Know who owes what, when tabs were opened, and who's overdue at a glance." },
                 { icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>, title: 'Dispute Resolution', desc: 'Customers can flag disputed charges directly in the app. Restaurants respond and resolve — all in one thread.' },
                 { icon: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>, title: 'Real-time Balances', desc: 'Customers see their outstanding balance live. No calling the restaurant, no surprises at month end.' },
                 { icon: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M14 18h.01M18 14h.01M18 18h.01"/></>, title: 'QR Code Linking', desc: 'Customers scan a QR code to link with a restaurant instantly. No forms, no manual entry, no friction.' },
@@ -419,8 +495,7 @@ const Welcome = () => {
               ].map(({ icon, title, desc }) => (
                 <div key={title} className="wl-feat-card w-fade">
                   <div className="wl-feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{icon}</svg></div>
-                  <h3>{title}</h3>
-                  <p>{desc}</p>
+                  <h3>{title}</h3><p>{desc}</p>
                 </div>
               ))}
             </div>
@@ -435,7 +510,7 @@ const Welcome = () => {
             <div className="wl-how-steps">
               {[
                 { num: '01', title: 'Restaurant signs up', desc: 'Create your restaurant or shop account. Set up your profile, invite link, and QR code in under 5 minutes.' },
-                { num: '02', title: 'Customer links via QR', desc: 'Customer downloads Navoq, scans your QR code or uses your invite link. They\'re linked instantly — no paperwork.' },
+                { num: '02', title: 'Customer links via QR', desc: "Customer downloads Navoq, scans your QR code or uses your invite link. They're linked instantly — no paperwork." },
                 { num: '03', title: 'Tab opens, charges added', desc: 'Restaurant opens a tab and logs charges as they happen. Customer sees every update in real time on their phone.' },
                 { num: '04', title: 'Settle & close', desc: 'When the customer pays, mark the tab settled. Both sides get a record. Clean, simple, done.' },
               ].map(({ num, title, desc }, i) => (
@@ -459,33 +534,14 @@ const Welcome = () => {
             <p className="wl-section-sub w-fade" style={{color:'#5a7060'}}>Navoq has three separate portals — each built for its role.</p>
             <div className="wl-portals-grid">
               {[
-                {
-                  cls: 'wl-portal-restaurant', tag: 'RESTAURANT / SHOP', title: 'Business Portal',
-                  desc: 'Manage your debtors, open tabs, log transactions, generate reports, and handle disputes.',
-                  features: ['Dashboard & analytics','Debtor management','Tab & transaction logs','Month-end reports','QR code & invite links'],
-                  btnCls: '', btnLabel: 'Sign In as Business', path: '/cashier/login',
-                  icon: <path d="M3 11l19-9-9 19-2-8-8-2z"/>
-                },
-                {
-                  cls: 'wl-portal-customer', tag: 'CUSTOMER', title: 'Customer Portal',
-                  desc: 'View your outstanding tabs across all restaurants, log orders, raise disputes, and track your history.',
-                  features: ['Live balance overview','Multi-restaurant tabs','Order history','Dispute logging','Invite & share codes'],
-                  btnCls: 'wl-btn-portal-customer', btnLabel: 'Sign In as Customer', path: '/customer/login',
-                  icon: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>
-                },
-                {
-                  cls: 'wl-portal-admin', tag: 'ADMIN', title: 'Admin Portal',
-                  desc: 'Full platform control. Monitor all businesses, customers, and transactions across the entire Navoq network.',
-                  features: ['Platform-wide analytics','All restaurants & customers','Account management','Dispute oversight','System configuration'],
-                  btnCls: 'wl-btn-portal-admin', btnLabel: 'Admin Login', path: '/admin/login',
-                  icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                },
+                { cls: 'wl-portal-restaurant', tag: 'RESTAURANT / SHOP', title: 'Business Portal', desc: 'Manage your debtors, open tabs, log transactions, generate reports, and handle disputes.', features: ['Dashboard & analytics','Debtor management','Tab & transaction logs','Month-end reports','QR code & invite links'], btnCls: '', btnLabel: 'Sign In as Business', path: '/cashier/login', icon: <path d="M3 11l19-9-9 19-2-8-8-2z"/> },
+                { cls: 'wl-portal-customer', tag: 'CUSTOMER', title: 'Customer Portal', desc: 'View your outstanding tabs across all restaurants, log orders, raise disputes, and track your history.', features: ['Live balance overview','Multi-restaurant tabs','Order history','Dispute logging','Invite & share codes'], btnCls: 'wl-btn-portal-customer', btnLabel: 'Sign In as Customer', path: '/customer/login', icon: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></> },
+                { cls: 'wl-portal-admin', tag: 'ADMIN', title: 'Admin Portal', desc: 'Full platform control. Monitor all businesses, customers, and transactions across the entire Navoq network.', features: ['Platform-wide analytics','All restaurants & customers','Account management','Dispute oversight','System configuration'], btnCls: 'wl-btn-portal-admin', btnLabel: 'Admin Login', path: '/admin/login', icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/> },
               ].map(({ cls, tag, title, desc, features, btnCls, btnLabel, path, icon }) => (
                 <div key={title} className={`wl-portal-card ${cls} w-fade`}>
                   <div className="wl-portal-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{icon}</svg></div>
                   <div className="wl-portal-tag">{tag}</div>
-                  <h3>{title}</h3>
-                  <p>{desc}</p>
+                  <h3>{title}</h3><p>{desc}</p>
                   <ul className="wl-portal-features">{features.map(f => <li key={f}>{f}</li>)}</ul>
                   <button className={`wl-btn-portal ${btnCls}`} onClick={() => navigate(path)}>
                     {btnLabel}
