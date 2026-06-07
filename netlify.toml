@@ -1,0 +1,104 @@
+[build]
+  command = "CI=false npm run build"
+  publish = "build"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/"
+  to = "/app.html"
+  status = 200
+
+[[redirects]]
+  from = "/cashier/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/customer/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/debtors"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/debtors/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/debtor/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/history"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/invite"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/settings"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/qr"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/profile"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/notifications"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/month-end"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/add-debtor"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/app.html"
+  status = 200
