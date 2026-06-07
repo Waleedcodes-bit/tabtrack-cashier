@@ -5,7 +5,6 @@ import { supabase } from "../../lib/supabase";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-
   .aa-root { min-height: 100vh; display: flex; background: #080f0b; font-family: 'DM Sans', sans-serif; position: relative; overflow: hidden; }
   .aa-brand img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; flex-shrink: 0; }
   .aa-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
@@ -78,51 +77,14 @@ const styles = `
   }
 `;
 
-const LockIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1db87a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-  </svg>
-);
-const MailIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-  </svg>
-);
-const KeyIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-  </svg>
-);
-const EyeIcon = ({ off }) => off ? (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-    <line x1="1" y1="1" x2="23" y2="23"/>
-  </svg>
-) : (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-  </svg>
-);
-const ShieldIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-);
-const AlertIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-  </svg>
-);
-const ArrowIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12h14M12 5l7 7-7 7"/>
-  </svg>
-);
-const BackIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M19 12H5M12 19l-7-7 7-7"/>
-  </svg>
-);
+const LockIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1db87a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>);
+const MailIcon = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>);
+const KeyIcon = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>);
+const EyeIcon = ({ off }) => off ? (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>) : (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>);
+const ShieldIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
+const AlertIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
+const ArrowIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>);
+const BackIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>);
 
 export default function AdminAuth() {
   const navigate = useNavigate();
@@ -135,38 +97,18 @@ export default function AdminAuth() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-
-    if (!email || !password) {
-      setError("Please enter your email and password.");
-      return;
-    }
-
+    if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
-
-    // Sign in with Supabase
     const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (signInError) {
-      setError("Invalid credentials. Access denied.");
-      setLoading(false);
-      return;
-    }
-
-    // Verify the user is actually an admin
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== 'admin') {
-      await supabase.auth.signOut();
-      setError("Access denied. Admin accounts only.");
-      setLoading(false);
-      return;
-    }
-
+    if (signInError) { setError("Invalid credentials. Access denied."); setLoading(false); return; }
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+    if (profileError || !profile || profile.role !== 'admin') { await supabase.auth.signOut(); setError("Access denied. Admin accounts only."); setLoading(false); return; }
     navigate("/admin/dashboard");
+  };
+
+  // ── Admin back button ALWAYS goes to the website (no app role selection) ──
+  const handleBack = () => {
+    window.location.href = '/';
   };
 
   return (
@@ -178,14 +120,10 @@ export default function AdminAuth() {
           <div className="aa-orb aa-orb-2" />
           <div className="aa-grid" />
         </div>
-
         <div className="aa-left">
           <div className="aa-brand">
             <img src={NavoqLogo} alt="Navoq logo" />
-            <div>
-              <div className="aa-brand-name">Navoq</div>
-              <div className="aa-brand-sub">ADMIN CONSOLE</div>
-            </div>
+            <div><div className="aa-brand-name">Navoq</div><div className="aa-brand-sub">ADMIN CONSOLE</div></div>
           </div>
           <div className="aa-hero">
             <div className="aa-hero-tag"><span className="aa-hero-dot" />Restricted Access</div>
@@ -201,53 +139,20 @@ export default function AdminAuth() {
           </div>
           <div className="aa-left-footer">© 2025 Nidaam Labs (Pty) Ltd · Navoq v1.0</div>
         </div>
-
         <div className="aa-right">
           <div className="aa-form-wrap">
             <div className="aa-lock-wrap"><LockIcon /></div>
             <div className="aa-form-title">Admin Login</div>
             <div className="aa-form-sub">Restricted to authorised Navoq administrators only.</div>
-
-            <div className="aa-security">
-              <div className="aa-security-icon"><ShieldIcon /></div>
-              <div className="aa-security-text">
-                <strong>Secure area</strong>
-                All sessions are logged and monitored.
-              </div>
-            </div>
-
+            <div className="aa-security"><div className="aa-security-icon"><ShieldIcon /></div><div className="aa-security-text"><strong>Secure area</strong>All sessions are logged and monitored.</div></div>
             {error && <div className="aa-error"><AlertIcon />{error}</div>}
-
             <form onSubmit={handleLogin}>
-              <div className="aa-field">
-                <label className="aa-label">EMAIL ADDRESS</label>
-                <div className="aa-input-wrap">
-                  <span className="aa-input-icon"><MailIcon /></span>
-                  <input type="email" className="aa-input" placeholder="admin@navoq.co.za"
-                    value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
-                </div>
-              </div>
-
-              <div className="aa-field">
-                <label className="aa-label">PASSWORD</label>
-                <div className="aa-input-wrap">
-                  <span className="aa-input-icon"><KeyIcon /></span>
-                  <input type={showPw ? "text" : "password"} className="aa-input" placeholder="••••••••••"
-                    value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
-                  <button type="button" className="aa-input-right" onClick={() => setShowPw(s => !s)} tabIndex={-1}>
-                    <EyeIcon off={showPw} />
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" className={`aa-submit ${loading ? "loading" : ""}`} disabled={loading}>
-                {loading ? <><span className="aa-spinner" />Verifying...</> : <>Access Admin Panel<ArrowIcon /></>}
-              </button>
+              <div className="aa-field"><label className="aa-label">EMAIL ADDRESS</label><div className="aa-input-wrap"><span className="aa-input-icon"><MailIcon /></span><input type="email" className="aa-input" placeholder="admin@navoq.co.za" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></div></div>
+              <div className="aa-field"><label className="aa-label">PASSWORD</label><div className="aa-input-wrap"><span className="aa-input-icon"><KeyIcon /></span><input type={showPw ? "text" : "password"} className="aa-input" placeholder="••••••••••" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /><button type="button" className="aa-input-right" onClick={() => setShowPw(s => !s)} tabIndex={-1}><EyeIcon off={showPw} /></button></div></div>
+              <button type="submit" className={`aa-submit ${loading ? "loading" : ""}`} disabled={loading}>{loading ? <><span className="aa-spinner" />Verifying...</> : <>Access Admin Panel<ArrowIcon /></>}</button>
             </form>
-
-            <button className="aa-back" onClick={() => navigate("/")}>
-              <BackIcon />Back to portal selection
-            </button>
+            {/* ── Always back to website ── */}
+            <button className="aa-back" onClick={handleBack}><BackIcon />Back to portal selection</button>
           </div>
         </div>
       </div>

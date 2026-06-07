@@ -1,39 +1,26 @@
+import { supabase } from '../lib/supabase';
+
 // ─── Cashier notifications ─────────────────────────────────────────────────
-let listeners = [];
-let notifications = [
-  {
-    id: 1, type: 'payment', unread: true,
-    title: 'Payment received',
-    body: 'From Thandi Mokoena',
-    amount: 'R 320,00', time: '2h ago',
-  },
-];
-let nextId = 10;
 
-export const getNotifications = () => notifications;
+export const addNotification = async ({ user_id, type, title, body, amount }) => {
+  const { error } = await supabase
+    .from('notifications')
+    .insert({ user_id, type, title, body, amount });
 
-export const addNotification = (notif) => {
-  const newNotif = { id: nextId++, unread: true, time: 'Just now', ...notif };
-  notifications = [newNotif, ...notifications];
-  listeners.forEach(fn => fn(notifications));
-};
-
-export const subscribe = (fn) => {
-  listeners.push(fn);
-  return () => { listeners = listeners.filter(l => l !== fn); };
+  if (error) console.error('addNotification error:', error);
 };
 
 // ─── Shared edit requests (cashier → customer) ─────────────────────────────
 let editListeners = [];
-let editRequests = [];
-let nextEditId = 100;
+let editRequests  = [];
+let nextEditId    = 100;
 
 export const getEditRequests = () => editRequests;
 
 export const addEditRequest = (req) => {
   const newReq = {
     id: nextEditId++,
-    status: 'pending', // pending | accepted | rejected
+    status: 'pending',
     createdAt: new Date().toISOString(),
     ...req,
   };

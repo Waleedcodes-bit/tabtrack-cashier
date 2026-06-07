@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getNotifications, subscribe } from '../../store/notificationStore';
+import { supabase } from '../../lib/supabase';
 import {
   Home, Clock, Users, BarChart2,
   Settings, Bell,
@@ -81,16 +81,53 @@ export const Sidebar = () => {
 
 const NotificationBell = () => {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(() => getNotifications().map(enrichNotif));
+  const [open, setOpen]     = useState(false);
+  const [items, setItems]   = useState([]);
   const unreadCount = items.filter(n => n.unread).length;
 
-  React.useEffect(() => {
-    return subscribe(notifs => setItems(notifs.map(enrichNotif)));
+  const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('hidden', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setItems(data || []);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const channel = supabase
+      .channel('main-bell')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' },
+        () => fetchNotifications())
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
-  const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, unread: false })));
-  const dismiss = (id) => setItems(prev => prev.filter(n => n.id !== id));
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('notifications').update({ unread: false })
+      .eq('user_id', user.id).eq('unread', true);
+    setItems(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+
+  const dismiss = async (id) => {
+    await supabase.from('notifications').update({ hidden: true }).eq('id', id);
+    setItems(prev => prev.filter(n => n.id !== id));
+  };
+
+  const relativeTime = (ts) => {
+    const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
 
   return (
     <div className="relative">
@@ -127,11 +164,12 @@ const NotificationBell = () => {
                   <p className="text-sm text-gray-400 dark:text-gray-500">No notifications</p>
                 </div>
               ) : items.map(n => {
-                const Icon = n.icon;
+                const meta = NOTIF_ICON_MAP[n.type] || NOTIF_ICON_MAP.order;
+                const Icon = meta.icon;
                 return (
                   <div key={n.id} className={`flex items-start gap-3 px-4 py-3 transition-colors ${n.unread ? 'bg-emerald-50/40 dark:bg-emerald-500/5' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}>
-                    <div className={`w-9 h-9 rounded-xl ${n.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                      <Icon size={15} className={n.iconColor} />
+                    <div className={`w-9 h-9 rounded-xl ${meta.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                      <Icon size={15} className={meta.iconColor} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
@@ -141,7 +179,7 @@ const NotificationBell = () => {
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{n.body}</p>
                       <div className="flex items-center justify-between mt-1">
                         {n.amount && <p className="text-xs font-bold text-gray-900 dark:text-white">{n.amount}</p>}
-                        <p className="text-[10px] text-gray-400 ml-auto">{n.time}</p>
+                        <p className="text-[10px] text-gray-400 ml-auto">{relativeTime(n.created_at)}</p>
                       </div>
                     </div>
                     {n.unread && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 mt-2" />}

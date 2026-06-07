@@ -1,86 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { ShoppingBag, AlertTriangle, CheckCircle, Bell, X } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
-const ALL_NOTIFICATIONS = [
-  {
-    id: 1, type: 'charge', unread: true,
-    title: 'New charge added',
-    body: 'The Green Bistro — Chicken wrap',
-    amount: 'R 85,00',
-    time: 'Just now',
-    date: 'Today',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    id: 2, type: 'resolved', unread: true,
-    title: 'Dispute resolved',
-    body: 'The Corner Bistro adjusted your order',
-    amount: 'R 45,00',
-    time: '1h ago',
-    date: 'Today',
-    icon: CheckCircle, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    id: 3, type: 'reminder', unread: false,
-    title: 'Month end reminder',
-    body: 'Your tab at The Green Bistro is due',
-    amount: 'R 320,00',
-    time: 'Yesterday',
-    date: 'Yesterday',
-    icon: AlertTriangle, iconBg: 'bg-orange-50 dark:bg-orange-500/10', iconColor: 'text-orange-500 dark:text-orange-400',
-  },
-  {
-    id: 4, type: 'charge', unread: false,
-    title: 'New charge added',
-    body: 'The Corner Bistro — Pap & Chicken',
-    amount: 'R 70,00',
-    time: 'Yesterday',
-    date: 'Yesterday',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    id: 5, type: 'dispute', unread: false,
-    title: 'Dispute pending',
-    body: 'Your dispute is being reviewed',
-    amount: null,
-    time: '2 days ago',
-    date: '11 May',
-    icon: AlertTriangle, iconBg: 'bg-orange-50 dark:bg-orange-500/10', iconColor: 'text-orange-500 dark:text-orange-400',
-  },
-  {
-    id: 6, type: 'charge', unread: false,
-    title: 'New charge added',
-    body: 'The Green Bistro — Burger & Fries',
-    amount: 'R 120,00',
-    time: '2 days ago',
-    date: '11 May',
-    icon: ShoppingBag, iconBg: 'bg-emerald-50 dark:bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-];
+const iconMap = {
+  order:    { icon: ShoppingBag,   bg: 'bg-emerald-50 dark:bg-emerald-500/10', color: 'text-emerald-600 dark:text-emerald-400' },
+  dispute:  { icon: AlertTriangle, bg: 'bg-orange-50 dark:bg-orange-500/10',   color: 'text-orange-500 dark:text-orange-400'   },
+  resolved: { icon: CheckCircle,   bg: 'bg-emerald-50 dark:bg-emerald-500/10', color: 'text-emerald-600 dark:text-emerald-400' },
+  reminder: { icon: AlertTriangle, bg: 'bg-orange-50 dark:bg-orange-500/10',   color: 'text-orange-500 dark:text-orange-400'   },
+};
 
 const FILTERS = ['All', 'Charges', 'Disputes', 'Reminders'];
-
 const filterMap = {
-  All: () => true,
-  Charges: n => n.type === 'charge',
-  Disputes: n => n.type === 'dispute' || n.type === 'resolved',
+  All:       () => true,
+  Charges:   n => n.type === 'order',
+  Disputes:  n => n.type === 'dispute' || n.type === 'resolved',
   Reminders: n => n.type === 'reminder',
 };
 
-const CustomerNotifications = () => {
-  const [items, setItems] = useState(ALL_NOTIFICATIONS);
-  const [filter, setFilter] = useState('All');
+const relativeTime = (ts) => {
+  const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (diff < 60)    return 'Just now';
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
 
-  const filtered = items.filter(filterMap[filter]);
+const dateLabel = (ts) => {
+  const d         = new Date(ts);
+  const today     = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString())     return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+};
+
+const CustomerNotifications = () => {
+  const [items, setItems]     = useState([]);
+  const [filter, setFilter]   = useState('All');
+  const [loading, setLoading] = useState(true);
+
+  const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('hidden', null)
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error('Fetch notifications error:', error); return; }
+    setItems(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const channel = supabase
+      .channel('customer-notifications')
+      .on('postgres_changes', {
+        event:  'INSERT',
+        schema: 'public',
+        table:  'notifications',
+      }, () => fetchNotifications())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from('notifications')
+      .update({ unread: false })
+      .eq('user_id', user.id)
+      .eq('unread', true);
+    setItems(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+
+  const dismiss = async (id) => {
+    await supabase
+      .from('notifications')
+      .update({ hidden: true })
+      .eq('id', id);
+    setItems(prev => prev.filter(n => n.id !== id));
+  };
+
+  const filtered    = items.filter(filterMap[filter]);
   const unreadCount = items.filter(n => n.unread).length;
 
-  const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, unread: false })));
-  const dismiss = id => setItems(prev => prev.filter(n => n.id !== id));
-
   const grouped = filtered.reduce((acc, n) => {
-    if (!acc[n.date]) acc[n.date] = [];
-    acc[n.date].push(n);
+    const key = dateLabel(n.created_at);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(n);
     return acc;
   }, {});
 
@@ -99,7 +116,6 @@ const CustomerNotifications = () => {
         )}
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1 no-scrollbar">
         {FILTERS.map(f => (
           <button
@@ -116,7 +132,11 @@ const CustomerNotifications = () => {
         ))}
       </div>
 
-      {Object.keys(grouped).length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center mb-3">
             <Bell size={24} className="text-gray-300 dark:text-white/20" />
@@ -131,7 +151,8 @@ const CustomerNotifications = () => {
               <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 dark:text-white/30 mb-3">{date}</p>
               <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden divide-y divide-gray-50 dark:divide-white/5">
                 {notifs.map(n => {
-                  const Icon = n.icon;
+                  const meta = iconMap[n.type] || iconMap.order;
+                  const Icon = meta.icon;
                   return (
                     <div
                       key={n.id}
@@ -141,8 +162,8 @@ const CustomerNotifications = () => {
                           : 'hover:bg-gray-50 dark:hover:bg-white/5'
                       }`}
                     >
-                      <div className={`w-10 h-10 rounded-xl ${n.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                        <Icon size={17} className={n.iconColor} />
+                      <div className={`w-10 h-10 rounded-xl ${meta.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                        <Icon size={17} className={meta.color} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3">
@@ -158,10 +179,10 @@ const CustomerNotifications = () => {
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          {n.amount ? (
-                            <span className="text-sm font-bold text-gray-900 dark:text-white">{n.amount}</span>
-                          ) : <span />}
-                          <span className="text-[11px] text-gray-400 dark:text-white/30">{n.time}</span>
+                          {n.amount
+                            ? <span className="text-sm font-bold text-gray-900 dark:text-white">{n.amount}</span>
+                            : <span />}
+                          <span className="text-[11px] text-gray-400 dark:text-white/30">{relativeTime(n.created_at)}</span>
                         </div>
                       </div>
                     </div>

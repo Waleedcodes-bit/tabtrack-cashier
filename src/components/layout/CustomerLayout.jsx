@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import {
   User, QrCode, History, ChevronLeft, Bell,
   ShoppingBag, CreditCard, AlertTriangle, CheckCircle, X, Settings
 } from 'lucide-react';
-import { getNotifications, subscribe } from '../../store/notificationStore';
+
 
 const NOTIF_ICON_MAP = {
   order:    { icon: ShoppingBag,   iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
@@ -24,16 +25,52 @@ const NAV_ITEMS = [
 const NotificationBell = () => {
   const navigate = useNavigate();
   const [open, setOpen]   = useState(false);
-  const [items, setItems] = useState(() => getNotifications().map(enrichNotif));
+  const [items, setItems] = useState([]);
   const unreadCount = items.filter(n => n.unread).length;
 
+  const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('hidden', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setItems(data || []);
+  };
+
   useEffect(() => {
-    const unsub = subscribe(notifs => setItems(notifs.map(enrichNotif)));
-    return unsub;
+    fetchNotifications();
+    const channel = supabase
+      .channel('customer-bell')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' },
+        () => fetchNotifications())
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
-  const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, unread: false })));
-  const dismiss     = (id) => setItems(prev => prev.filter(n => n.id !== id));
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('notifications').update({ unread: false })
+      .eq('user_id', user.id).eq('unread', true);
+    setItems(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+
+  const dismiss = async (id) => {
+    await supabase.from('notifications').update({ hidden: true }).eq('id', id);
+    setItems(prev => prev.filter(n => n.id !== id));
+  };
+
+  const relativeTime = (ts) => {
+    const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
 
   return (
     <div className="relative">
@@ -50,10 +87,8 @@ const NotificationBell = () => {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="absolute right-0 top-11 z-50 w-72 bg-white dark:bg-[#111827] rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden"
-            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
-          >
+          <div className="absolute right-0 top-11 z-50 w-72 bg-white dark:bg-[#111827] rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden"
+            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/10">
               <div className="flex items-center gap-3">
                 <p className="font-bold text-gray-900 dark:text-white text-sm">Notifications</p>
@@ -67,56 +102,39 @@ const NotificationBell = () => {
                 </button>
               )}
             </div>
-
             <div className="max-h-72 overflow-y-auto divide-y divide-gray-50 dark:divide-white/5">
               {items.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <Bell size={24} className="text-gray-200 dark:text-white/10 mx-auto mb-2" />
                   <p className="text-sm text-gray-400 dark:text-white/30">No notifications</p>
                 </div>
-              ) : (
-                items.map(n => {
-                  const Icon = n.icon;
-                  return (
-                    <div
-                      key={n.id}
-                      className={`flex items-start gap-3 px-4 py-3 transition-colors ${
-                        n.unread
-                          ? 'bg-emerald-50/40 dark:bg-emerald-500/5'
-                          : 'hover:bg-gray-50 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div className={`w-9 h-9 rounded-xl ${n.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                        <Icon size={15} className={n.iconColor} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{n.title}</p>
-                          <button
-                            onClick={() => dismiss(n.id)}
-                            className="text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/40 flex-shrink-0"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-gray-500 dark:text-white/40 mt-0.5">{n.body}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          {n.amount && <p className="text-xs font-bold text-gray-900 dark:text-white">{n.amount}</p>}
-                          <p className="text-[10px] text-gray-400 dark:text-white/30 ml-auto">{n.time}</p>
-                        </div>
-                      </div>
-                      {n.unread && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 mt-2" />}
+              ) : items.map(n => {
+                const meta = NOTIF_ICON_MAP[n.type] || NOTIF_ICON_MAP.order;
+                const Icon = meta.icon;
+                return (
+                  <div key={n.id} className={`flex items-start gap-3 px-4 py-3 transition-colors ${n.unread ? 'bg-emerald-50/40 dark:bg-emerald-500/5' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}>
+                    <div className={`w-9 h-9 rounded-xl ${meta.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                      <Icon size={15} className={meta.iconColor} />
                     </div>
-                  );
-                })
-              )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{n.title}</p>
+                        <button onClick={() => dismiss(n.id)} className="text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/40 flex-shrink-0"><X size={12} /></button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-white/40 mt-0.5">{n.body}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        {n.amount && <p className="text-xs font-bold text-gray-900 dark:text-white">{n.amount}</p>}
+                        <p className="text-[10px] text-gray-400 dark:text-white/30 ml-auto">{relativeTime(n.created_at)}</p>
+                      </div>
+                    </div>
+                    {n.unread && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 mt-2" />}
+                  </div>
+                );
+              })}
             </div>
-
             <div className="px-4 py-2.5 border-t border-gray-100 dark:border-white/10">
-              <button
-                onClick={() => { setOpen(false); navigate('/customer/notifications'); }}
-                className="w-full text-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 py-1 hover:text-emerald-700 dark:hover:text-emerald-300"
-              >
+              <button onClick={() => { setOpen(false); navigate('/customer/notifications'); }}
+                className="w-full text-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 py-1">
                 View all
               </button>
             </div>
@@ -128,7 +146,7 @@ const NotificationBell = () => {
 };
 
 /* ─── Customer Sidebar (tablet/desktop only) ─── */
-const CustomerSidebar = () => {
+const CustomerSidebar = ({ headerTitle }) => {
   const loc = useLocation();
   return (
     <aside className="hidden md:flex w-56 lg:w-60 flex-shrink-0 flex-col h-full bg-[#0d1321] border-r border-white/5">
@@ -143,7 +161,10 @@ const CustomerSidebar = () => {
           </svg>
         </div>
         <div>
-          <p className="font-bold text-white text-[14px] lg:text-[15px] leading-none tracking-tight font-['Plus_Jakarta_Sans']">Navoq</p>
+          {/* Show business name if available, else fall back to "Navoq" */}
+          <p className="font-bold text-white text-[14px] lg:text-[15px] leading-none tracking-tight font-['Plus_Jakarta_Sans']">
+            {headerTitle || 'Navoq'}
+          </p>
           <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mt-0.5">Customer Portal</p>
         </div>
       </div>
@@ -177,13 +198,11 @@ const CustomerSidebar = () => {
 };
 
 /* ─── CustomerLayout ─── */
-const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction, hideNav = false }) => {
+const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction, hideNav = false, headerTitle }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const mainRef  = useRef(null);
 
-  // FIX 1: Scroll to top on every route change — with a small delay so the
-  // ref is guaranteed to be attached after the new page mounts.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (mainRef.current) mainRef.current.scrollTop = 0;
@@ -191,8 +210,6 @@ const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction
     return () => cancelAnimationFrame(frame);
   }, [location.pathname]);
 
-  // FIX 2: Smart back navigation — use history back if no explicit backTo,
-  // otherwise go to the specified path.
   const handleBack = () => {
     if (backTo) {
       navigate(backTo);
@@ -202,13 +219,12 @@ const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction
   };
 
   return (
-    // FIX 3: Replace h-screen + overflow-hidden with dvh and explicit layout
-    // to prevent the Android browser chrome causing a double-scroll context.
     <div
       className="flex flex-col md:flex-row bg-[#eef2f7] dark:bg-[#0a0f1a] font-['Inter']"
       style={{ height: '100dvh', overflow: 'hidden' }}
     >
-      <CustomerSidebar />
+      {/* Pass headerTitle down to sidebar so it also updates on desktop */}
+      <CustomerSidebar headerTitle={headerTitle} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
@@ -219,7 +235,6 @@ const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction
         >
           <div className="flex items-center gap-3">
             {showBack ? (
-              // FIX 2 applied here — uses handleBack instead of navigate(backTo)
               <button
                 onClick={handleBack}
                 className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center active:scale-90 transition-all"
@@ -238,7 +253,10 @@ const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 dark:text-white text-sm leading-none font-['Plus_Jakarta_Sans']">Navoq</p>
+                  {/* Mobile header: show business name instead of "Navoq" */}
+                  <p className="font-bold text-gray-900 dark:text-white text-sm leading-none font-['Plus_Jakarta_Sans']">
+                    {headerTitle || 'Navoq'}
+                  </p>
                   <p className="text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider mt-0.5">Customer Portal</p>
                 </div>
               </div>
@@ -285,7 +303,6 @@ const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction
         {/* Page content */}
         <main
           ref={mainRef}
-          // FIX 3: Use -webkit-overflow-scrolling for smooth momentum scrolling on iOS
           className="flex-1 overflow-y-auto px-4 md:px-6 pt-4 md:pt-5 pb-32 md:pb-8"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >

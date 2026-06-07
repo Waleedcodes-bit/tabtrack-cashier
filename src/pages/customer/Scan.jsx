@@ -149,53 +149,61 @@ const Scan = () => {
   };
 
   const handleAccept = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+  setLoading(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('full_name, phone, email')
-        .eq('id', user.id)
-        .single();
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('full_name, phone, email')
+      .eq('id', user.id)
+      .single();
 
-      const newCustomer = {
-        name:            myProfile?.full_name || user.email,
-        code:            user.id.slice(0, 8).toUpperCase(),
-        owner_id:        cashierProfile.id,
-        auth_user_id:    user.id,
-        balance:         0,
-        joined_date:     today,
-        unsettled_previous_month: false,
-        previous_month_balance:   0,
-      };
+    const newCustomer = {
+      name:                     myProfile?.full_name || user.email,
+      code:                     user.id.slice(0, 8).toUpperCase(),
+      owner_id:                 cashierProfile.id,
+      auth_user_id:             user.id,
+      balance:                  0,
+      joined_date:              today,
+      unsettled_previous_month: false,
+      previous_month_balance:   0,
+    };
 
-      const { data: inserted, error } = await supabase
-        .from('customers')
-        .insert(newCustomer)
-        .select()
-        .single();
+    const { data: inserted, error } = await supabase
+      .from('customers')
+      .insert(newCustomer)
+      .select()
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setCustomerRow(inserted);
+    setCustomerRow(inserted);
 
-      await sendPushNotification({
-        userId: cashierProfile.id,
-        title:  'New customer linked',
-        body:   `${inserted.name} registered at ${cashierProfile.business_name}`,
-        url:    '/debtors',
-      });
+    // Notify cashier
+    await addNotification({
+      user_id: cashierProfile.id,
+      type:    'order',
+      title:   'New customer linked',
+      body:    `${inserted.name} registered at ${cashierProfile.business_name}`,
+    });
 
-      setStep('order');
-    } catch (err) {
-      console.error('Register customer error:', err);
-      setCameraError('Could not register. Please try again.');
-      setStep('scan');
-    } finally {
-      setLoading(false);
-    }
-  };
+    await sendPushNotification({
+      userId: cashierProfile.id,
+      title:  'New customer linked',
+      body:   `${inserted.name} registered at ${cashierProfile.business_name}`,
+      url:    '/debtors',
+    });
+
+    setStep('order');
+  } catch (err) {
+    console.error('Register customer error:', err);
+    setCameraError('Could not register. Please try again.');
+    setStep('scan');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDecline = () => {
     setShowDeclined(true);
@@ -203,44 +211,57 @@ const Scan = () => {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || !customerRow) return;
-    setLoading(true);
+  if (!canSubmit || !customerRow) return;
+  setLoading(true);
 
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: customerRow.id,
-          name:        orderName.trim(),
-          amount:      parseFloat(amount),
-          date:        today,
-          disputed:    false,
-        });
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-      if (error) throw error;
-
-      addNotification({
-        type:   'order',
-        title:  'New order submitted',
-        body:   `${customerRow.name} — ${orderName.trim()}`,
-        amount: formatZAR(parseFloat(amount)),
+    const { error } = await supabase
+      .from('orders')
+      .insert({
+        customer_id: customerRow.id,
+        name:        orderName.trim(),
+        amount:      parseFloat(amount),
+        date:        today,
+        disputed:    false,
       });
 
-      await sendPushNotification({
-        userId: cashierProfile.id,
-        title:  'New order added',
-        body:   `${customerRow.name} — ${orderName.trim()} · ${formatZAR(parseFloat(amount))}`,
-        url:    '/debtors',
-      });
+    if (error) throw error;
 
-      setStep('submitted');
-    } catch (err) {
-      console.error('Submit order error:', err);
-      setCameraError('Failed to submit order. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Notify cashier
+    await addNotification({
+      user_id: cashierProfile.id,
+      type:    'order',
+      title:   'New order added',
+      body:    `${customerRow.name} — ${orderName.trim()}`,
+      amount:  formatZAR(parseFloat(amount)),
+    });
+
+    // Notify customer
+    await addNotification({
+      user_id: user.id,
+      type:    'order',
+      title:   'Order logged',
+      body:    `${orderName.trim()} at ${cashierProfile.business_name}`,
+      amount:  formatZAR(parseFloat(amount)),
+    });
+
+    await sendPushNotification({
+      userId: cashierProfile.id,
+      title:  'New order added',
+      body:   `${customerRow.name} — ${orderName.trim()} · ${formatZAR(parseFloat(amount))}`,
+      url:    '/debtors',
+    });
+
+    setStep('submitted');
+  } catch (err) {
+    console.error('Submit order error:', err);
+    setCameraError('Failed to submit order. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── 1. Scan ──────────────────────────────────────────────────────────────────
   if (step === 'scan') {

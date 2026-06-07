@@ -45,12 +45,10 @@ const CustomerDashboard = () => {
     (owners || []).forEach(o => { ownerMap[o.id] = o; });
 
     const enriched = customerRows.map(row => ({
-      // customer row id (used for navigation to tab detail)
       id:      row.id,
       name:    ownerMap[row.owner_id]?.business_name || ownerMap[row.owner_id]?.owner_name || 'Unknown',
       code:    ownerMap[row.owner_id]?.code || row.code || '',
       balance: row.balance || 0,
-      // fallback placeholder image — replace with real owner image column if added later
       image:   `https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1200&auto=format&fit=crop`,
     }));
 
@@ -63,7 +61,6 @@ const CustomerDashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get this customer's IDs across all restaurants
     const { data: customerRows } = await supabase
       .from('customers')
       .select('id')
@@ -73,9 +70,6 @@ const CustomerDashboard = () => {
 
     const customerIds = customerRows.map(r => r.id);
 
-    // Count pending orders that have been disputed
-    // Assuming disputes are tracked via a `disputed` boolean or status on orders
-    // Adjust this query if you have a separate disputes table
     const { count } = await supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
@@ -97,8 +91,15 @@ const CustomerDashboard = () => {
     r.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // ── Header title: single restaurant name, or "My Tabs" for multiple ──
+  const headerTitle = restaurants.length === 1
+    ? restaurants[0].name
+    : restaurants.length > 1
+      ? 'My Tabs'
+      : '';
+
   return (
-    <CustomerLayout>
+    <CustomerLayout headerTitle={headerTitle}>
 
       {/* ── Hero Card ── */}
       <div className="rounded-3xl p-5 mb-5 relative overflow-hidden text-white"

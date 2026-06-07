@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { ShoppingBag, CreditCard, Pencil, Bell, X } from 'lucide-react';
-import { getNotifications, subscribe } from '../../store/notificationStore';
+import { supabase } from '../../lib/supabase';
 
 const iconMap = {
   order:   { icon: ShoppingBag, bg: 'bg-emerald-50 dark:bg-emerald-500/10', color: 'text-emerald-600 dark:text-emerald-400' },
@@ -17,20 +17,84 @@ const filterMap = {
   Edits:    n => n.type === 'edit',
 };
 
+const relativeTime = (ts) => {
+  const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (diff < 60)   return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
+
+const dateLabel = (ts) => {
+  const d     = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString())     return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+};
+
 const Notifications = () => {
-  const [items, setItems]   = useState(getNotifications());
+  const [items, setItems]   = useState([]);
   const [filter, setFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => subscribe(setItems), []);
+  const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  const filtered    = items.filter(filterMap[filter]);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('hidden', null)
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error('Fetch notifications error:', error); return; }
+    setItems(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const channel = supabase
+      .channel('cashier-notifications')
+      .on('postgres_changes', {
+        event:  'INSERT',
+        schema: 'public',
+        table:  'notifications',
+      }, () => fetchNotifications())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from('notifications')
+      .update({ unread: false })
+      .eq('user_id', user.id)
+      .eq('unread', true);
+    setItems(prev => prev.map(n => ({ ...n, unread: false })));
+  };
+
+  const dismiss = async (id) => {
+    await supabase
+      .from('notifications')
+      .update({ hidden: true })
+      .eq('id', id);
+    setItems(prev => prev.filter(n => n.id !== id));
+  };
+
+  const filtered = items.filter(filterMap[filter]);
   const unreadCount = items.filter(n => n.unread).length;
 
-  const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, unread: false })));
-  const dismiss     = id => setItems(prev => prev.filter(n => n.id !== id));
-
   const grouped = filtered.reduce((acc, n) => {
-    const key = n.date || 'Today';
+    const key = dateLabel(n.created_at);
     if (!acc[key]) acc[key] = [];
     acc[key].push(n);
     return acc;
@@ -39,7 +103,7 @@ const Notifications = () => {
   return (
     <MainLayout title="Notifications" showBack>
       <div className="max-w-2xl">
-        
+
         <div className="flex items-center justify-between mb-5">
           {unreadCount > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-xs font-bold">
@@ -53,7 +117,6 @@ const Notifications = () => {
           )}
         </div>
 
-        {/* Filter tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1 no-scrollbar">
           {FILTERS.map(f => (
             <button
@@ -70,8 +133,11 @@ const Notifications = () => {
           ))}
         </div>
 
-        {/* Notifications list */}
-        {Object.keys(grouped).length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : Object.keys(grouped).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center mb-3">
               <Bell size={24} className="text-gray-300 dark:text-white/20" />
@@ -117,7 +183,7 @@ const Notifications = () => {
                             {n.amount
                               ? <span className="text-sm font-bold text-gray-900 dark:text-white">{n.amount}</span>
                               : <span />}
-                            <span className="text-[11px] text-gray-400 dark:text-white/30">{n.time}</span>
+                            <span className="text-[11px] text-gray-400 dark:text-white/30">{relativeTime(n.created_at)}</span>
                           </div>
                         </div>
                       </div>
