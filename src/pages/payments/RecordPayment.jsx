@@ -119,12 +119,7 @@ const RecordPayment = () => {
       if (payError) throw payError;
 
       // 2. Update customer balance
-      const newBalance = Math.max(0, balance - paidAmount);
-      const { error: balError } = await supabase
-        .from('customers')
-        .update({ balance: newBalance })
-        .eq('id', selectedCustomer.id);
-      if (balError) throw balError;
+      
 
       // 3. Log activity
       await supabase.from('activity_logs').insert({
@@ -134,7 +129,9 @@ const RecordPayment = () => {
       });
 
       // 4. Push notification to customer
+      // 4. Push notification to customer
       if (selectedCustomer.auth_user_id) {
+        const newBalance = Math.max(0, balance - paidAmount);
         await sendPushNotification({
           userId: selectedCustomer.auth_user_id,
           title:  'Payment recorded',
