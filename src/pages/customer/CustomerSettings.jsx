@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Moon, Sun, FileText, ChevronRight, LogOut } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { useTheme } from '../../context/ThemeContext';
+import { supabase } from '../../lib/supabase';
 
 const Section = ({ title, children }) => (
   <div className="mb-5">
@@ -32,11 +33,46 @@ const NavRow = ({ icon: Icon, iconBg, iconBgDark, iconColor, label, sub, onClick
 const CustomerSettings = () => {
   const navigate = useNavigate();
   const { darkMode, setDarkMode } = useTheme();
-  const [feedback, setFeedback] = useState('');
-  const [fbSent, setFbSent] = useState(false);
+  const [feedback, setFeedback]   = useState('');
+  const [fbSent, setFbSent]       = useState(false);
+  const [fbError, setFbError]     = useState('');
+  const [fbLoading, setFbLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleSendFeedback = () => {
+  // ── Sign Out ──────────────────────────────────────────────────────────────
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Sign out error:', error);
+      setSigningOut(false);
+      return;
+    }
+    navigate('/');
+  };
+
+  // ── Send Feedback ─────────────────────────────────────────────────────────
+  const handleSendFeedback = async () => {
     if (!feedback.trim()) return;
+    setFbError('');
+    setFbLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase.from('feedback').insert({
+      user_id: user?.id || null,
+      role:    'customer',
+      message: feedback.trim(),
+    });
+
+    setFbLoading(false);
+
+    if (error) {
+      console.error('Feedback error:', error);
+      setFbError('Failed to send feedback. Please try again.');
+      return;
+    }
+
     setFbSent(true);
     setFeedback('');
     setTimeout(() => setFbSent(false), 3000);
@@ -84,12 +120,19 @@ const CustomerSettings = () => {
           </Section>
 
           <Section title="Account">
-            <NavRow icon={LogOut} iconBg="bg-red-50" iconBgDark="dark:bg-red-500/10" iconColor="text-red-500"
-              label="Sign Out" sub="Log out of your account" onClick={() => navigate('/')} />
+            <NavRow
+              icon={LogOut}
+              iconBg="bg-red-50"
+              iconBgDark="dark:bg-red-500/10"
+              iconColor="text-red-500"
+              label={signingOut ? 'Signing out…' : 'Sign Out'}
+              sub="Log out of your account"
+              onClick={handleSignOut}
+            />
           </Section>
 
           <p className="text-[10px] text-gray-400 dark:text-white/20 pb-4 ml-1">
-            TabTrack v1.0 — Nidaam Labs (Pty) Ltd
+            Navoq v1.0 — Nidaam Labs (Pty) Ltd
           </p>
         </div>
 
@@ -113,15 +156,20 @@ const CustomerSettings = () => {
                 style={{ resize: 'none', WebkitUserSelect: 'text', userSelect: 'text' }}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl text-sm text-gray-700 dark:text-white placeholder:text-gray-300 dark:placeholder:text-white/20 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/5 transition-all block"
               />
+              {fbError && (
+                <p className="text-xs text-red-500 font-medium mt-2">{fbError}</p>
+              )}
               <button
                 onClick={handleSendFeedback}
-                disabled={!feedback.trim()}
+                disabled={!feedback.trim() || fbLoading}
                 className={`mt-3 w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] ${
-                  feedback.trim() ? 'text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20 cursor-not-allowed'
+                  feedback.trim() && !fbLoading
+                    ? 'text-white'
+                    : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20 cursor-not-allowed'
                 }`}
-                style={feedback.trim() ? { background: 'linear-gradient(145deg, #0d2137 0%, #0a3328 50%, #0f4d3a 100%)' } : {}}
+                style={feedback.trim() && !fbLoading ? { background: 'linear-gradient(145deg, #0d2137 0%, #0a3328 50%, #0f4d3a 100%)' } : {}}
               >
-                {fbSent ? '✓ Feedback sent — thanks!' : 'Send Feedback'}
+                {fbLoading ? 'Sending…' : fbSent ? '✓ Feedback sent — thanks!' : 'Send Feedback'}
               </button>
             </div>
           </Section>

@@ -1,19 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, LogOut, KeyRound, Eye, EyeOff, Check, Pencil, X } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
+import { supabase } from '../../lib/supabase';
 
 const CustomerProfile = () => {
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState({
-    fullName: 'John Doe',
-    email: 'john@email.com',
-    phone: '+27 82 345 6789',
-  });
+  const [profile, setProfile] = useState({ fullName: '', email: '', phone: '' });
   const [editMode, setEditMode]         = useState(false);
   const [draft, setDraft]               = useState({ ...profile });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword]   = useState('');
@@ -23,11 +21,26 @@ const CustomerProfile = () => {
   const [showNew, setShowNew]                   = useState(false);
   const [showConfirm, setShowConfirm]           = useState(false);
   const [saved, setSaved]                       = useState(false);
+  const [pwError, setPwError]                   = useState('');
 
   const passwordsMatch = newPassword && newPassword === confirmPassword;
   const canSave        = currentPassword && newPassword && passwordsMatch;
 
-  const handlePasswordSave = () => {
+  // Load user info on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const fullName = user.user_metadata?.full_name || user.user_metadata?.owner_name || '';
+      const phone    = user.user_metadata?.phone || '';
+      setProfile({ fullName, email: user.email || '', phone });
+      setDraft({ fullName, email: user.email || '', phone });
+    });
+  }, []);
+
+  const handlePasswordSave = async () => {
+    setPwError('');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { setPwError(error.message); return; }
     setSaved(true);
     setTimeout(() => {
       setShowPasswordForm(false);
@@ -36,13 +49,35 @@ const CustomerProfile = () => {
     }, 1500);
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
+    setProfileError('');
+    const { error } = await supabase.auth.updateUser({
+      email: draft.email,
+      data: { full_name: draft.fullName, phone: draft.phone },
+    });
+    if (error) { setProfileError(error.message); return; }
+
+    // Also update profiles table
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({
+        owner_name: draft.fullName,
+        email: draft.email,
+        phone: draft.phone,
+      }).eq('id', user.id);
+    }
+
     setProfile({ ...draft });
     setProfileSaved(true);
     setTimeout(() => { setEditMode(false); setProfileSaved(false); }, 1200);
   };
 
   const handleEditCancel = () => { setDraft({ ...profile }); setEditMode(false); };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   const fields = [
     { label: 'Full Name',      key: 'fullName', icon: <User  size={18} />, type: 'text',  placeholder: 'Enter full name' },
@@ -56,13 +91,12 @@ const CustomerProfile = () => {
 
         {/* ── Left: avatar + info fields ── */}
         <div>
-          {/* Avatar card */}
           <div className="flex flex-col items-center py-6 bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 mb-5">
             <div className="w-24 h-24 rounded-[2.5rem] flex items-center justify-center text-white mb-4"
               style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)', boxShadow: '0 8px 24px rgba(13,33,55,0.2)' }}>
               <User size={40} />
             </div>
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">{profile.fullName}</h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white">{profile.fullName || 'Customer'}</h2>
             <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-1">Active Customer</p>
 
             {!editMode ? (
@@ -83,9 +117,9 @@ const CustomerProfile = () => {
                 </button>
               </div>
             )}
+            {profileError && <p className="text-xs text-red-500 mt-2 text-center">{profileError}</p>}
           </div>
 
-          {/* Info Fields */}
           <div className="space-y-3">
             {fields.map((item) => (
               <div key={item.key}
@@ -102,7 +136,7 @@ const CustomerProfile = () => {
                       className="w-full mt-1 text-sm font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/5 transition-all"
                     />
                   ) : (
-                    <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">{profile[item.key]}</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">{profile[item.key] || '—'}</p>
                   )}
                 </div>
               </div>
@@ -112,8 +146,6 @@ const CustomerProfile = () => {
 
         {/* ── Right: password + sign out ── */}
         <div className="flex flex-col gap-4">
-
-          {/* Change Password */}
           <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden">
             <button
               onClick={() => setShowPasswordForm(prev => !prev)}
@@ -160,6 +192,7 @@ const CustomerProfile = () => {
                     )}
                   </div>
                 ))}
+                {pwError && <p className="text-xs text-red-500 font-bold">{pwError}</p>}
                 <button onClick={handlePasswordSave} disabled={!canSave}
                   className={`w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] mt-2
                     ${canSave ? saved ? 'bg-emerald-500 text-white' : 'bg-gray-900 dark:bg-emerald-600 text-white hover:bg-gray-800' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20 cursor-not-allowed'}`}>
@@ -169,8 +202,7 @@ const CustomerProfile = () => {
             )}
           </div>
 
-          {/* Sign Out */}
-          <button onClick={() => navigate('/')}
+          <button onClick={handleSignOut}
             className="w-full py-4 text-red-500 font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-500/10 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl transition-colors">
             <LogOut size={18} /> Sign Out
           </button>

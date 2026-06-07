@@ -1,38 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { formatZAR } from '../../utils/format';
+import { supabase } from '../../lib/supabase';
 
 const LAST_MONTH = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 7);
-
-const RESTAURANT_DATA = {
-  '1': {
-    name: 'The Corner Bistro',
-    code: 'TCB-001',
-    balance: 450.50,
-    rollover: 240.50,
-    orders: [
-      { id: 'o1', name: 'Burger & Fries', amount: 120, date: '2026-05-03' },
-      { id: 'o2', name: 'Craft Beer x2',  amount: 90,  date: '2026-05-02' },
-    ],
-  },
-  '2': {
-    name: 'The Green Bistro',
-    code: 'TGB-002',
-    balance: 320.00,
-    rollover: 0,
-    orders: [
-      { id: 'o3', name: 'Steak Dinner', amount: 240, date: '2026-05-04' },
-      { id: 'o4', name: 'Wine x2',      amount: 80,  date: '2026-05-01' },
-    ],
-  },
-};
+const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 
 const RestaurantView = () => {
-  const { id }     = useParams();
-  const navigate   = useNavigate();
-  const restaurant = RESTAURANT_DATA[id];
+  const { id }   = useParams(); // this is the customer row id
+  const navigate = useNavigate();
+
+  const [restaurant, setRestaurant] = useState(null);
+  const [orders, setOrders]         = useState([]);
+  const [loading, setLoading]       = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+
+    // Get the customer row (id is the customers table row id)
+    const { data: customerRow, error: custError } = await supabase
+      .from('customers')
+      .select('id, name, code, balance, owner_id, unsettled_previous_month, previous_month_balance')
+      .eq('id', id)
+      .single();
+
+    if (custError || !customerRow) {
+      setLoading(false);
+      return;
+    }
+
+    // Get owner/restaurant info
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('business_name, owner_name, code')
+      .eq('id', customerRow.owner_id)
+      .single();
+
+    // Get this month's orders
+    const { data: monthOrders } = await supabase
+      .from('orders')
+      .select('id, name, amount, date')
+      .eq('customer_id', id)
+      .gte('date', `${CURRENT_MONTH}-01`)
+      .order('date', { ascending: false });
+
+    setRestaurant({
+      name:     owner?.business_name || owner?.owner_name || 'Unknown',
+      code:     owner?.code || customerRow.code || '',
+      balance:  customerRow.balance || 0,
+      rollover: customerRow.unsettled_previous_month ? (customerRow.previous_month_balance || 0) : 0,
+    });
+    setOrders(monthOrders || []);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  if (loading) return (
+    <CustomerLayout title="Loading..." showBack>
+      <div className="text-center py-20 text-gray-400 dark:text-white/30 font-medium text-sm">Loading…</div>
+    </CustomerLayout>
+  );
 
   if (!restaurant) return (
     <CustomerLayout title="Not Found" showBack>
@@ -40,25 +70,19 @@ const RestaurantView = () => {
     </CustomerLayout>
   );
 
-  const ordersTotal = restaurant.orders.reduce((sum, o) => sum + o.amount, 0);
+  const ordersTotal = orders.reduce((sum, o) => sum + o.amount, 0);
 
   return (
     <CustomerLayout title={restaurant.name} showBack>
 
-      {/* Balance Card — gradient stays dark regardless of theme */}
-      <div
-        className="rounded-2xl p-6 mb-5 relative overflow-hidden text-white"
-        style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)' }}
-      >
-        <div
-          className="absolute -top-6 -right-6 w-32 h-32 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(74,222,128,0.1), transparent 70%)' }}
-        />
+      {/* Balance Card */}
+      <div className="rounded-2xl p-6 mb-5 relative overflow-hidden text-white"
+        style={{ background: 'linear-gradient(135deg, #0d2137 0%, #0f4d3a 100%)' }}>
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(74,222,128,0.1), transparent 70%)' }} />
         <div className="relative z-10 flex items-center gap-3 mb-5">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-sm"
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.08)' }}>
             {restaurant.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
           <div>
@@ -66,23 +90,16 @@ const RestaurantView = () => {
             <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">{restaurant.code}</p>
           </div>
         </div>
-
         <div className="relative z-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50 mb-1">
-            Current Balance
-          </p>
-          <h2 className="text-4xl font-black text-white tracking-tight">
-            {formatZAR(restaurant.balance)}
-          </h2>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50 mb-1">Current Balance</p>
+          <h2 className="text-4xl font-black text-white tracking-tight">{formatZAR(restaurant.balance)}</h2>
         </div>
       </div>
 
       {/* Rollover Banner */}
       {restaurant.rollover > 0 && (
-        <div
-          className="rounded-2xl px-5 py-4 flex justify-between items-center mb-4"
-          style={{ backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.12)' }}
-        >
+        <div className="rounded-2xl px-5 py-4 flex justify-between items-center mb-4"
+          style={{ backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.12)' }}>
           <div>
             <p className="font-bold text-sm text-orange-700 dark:text-orange-400">Rollover from {LAST_MONTH}</p>
             <p className="text-[9px] text-orange-500 dark:text-orange-400/60 font-bold uppercase tracking-wider mt-0.5">
@@ -98,24 +115,20 @@ const RestaurantView = () => {
         This Month's Orders
       </p>
 
-      {restaurant.orders.length === 0 ? (
+      {orders.length === 0 ? (
         <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-8 text-center text-sm text-gray-400 dark:text-white/30 font-medium mb-4">
           No orders this month
         </div>
       ) : (
         <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden mb-4">
-          {restaurant.orders.map((order, i) => (
-            <div
-              key={order.id}
+          {orders.map((order, i) => (
+            <div key={order.id}
               className={`flex justify-between items-center px-5 py-4 ${
-                i < restaurant.orders.length - 1 ? 'border-b border-gray-50 dark:border-white/5' : ''
-              }`}
-            >
+                i < orders.length - 1 ? 'border-b border-gray-50 dark:border-white/5' : ''
+              }`}>
               <div>
                 <p className="font-bold text-sm text-gray-900 dark:text-white">{order.name}</p>
-                <p className="text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-tighter mt-0.5">
-                  {order.date}
-                </p>
+                <p className="text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-tighter mt-0.5">{order.date}</p>
               </div>
               <p className="font-bold text-sm text-gray-900 dark:text-white">{formatZAR(order.amount)}</p>
             </div>

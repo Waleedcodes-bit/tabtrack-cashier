@@ -8,7 +8,7 @@ const SECTIONS = [
   },
   {
     title: '2. How We Use Your Information',
-    body: 'Your information is used to provide and improve the TabTrack service, to communicate with you about your account, and to ensure the security and integrity of the platform.',
+    body: 'Your information is used to provide and improve the Navoq service, to communicate with you about your account, and to ensure the security and integrity of the platform.',
   },
   {
     title: '3. Data Sharing',
@@ -20,7 +20,7 @@ const SECTIONS = [
   },
   {
     title: '5. Customer Data',
-    body: 'Businesses using TabTrack are responsible for obtaining appropriate consent from their customers before adding them to the platform as debtors.',
+    body: 'Businesses using Navoq are responsible for obtaining appropriate consent from their customers before adding them to the platform as debtors.',
   },
   {
     title: '6. Your Rights',
@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     title: '7. Cookies',
-    body: 'TabTrack may use local storage and session data to maintain your login state and preferences. No third-party advertising cookies are used.',
+    body: 'Navoq may use local storage and session data to maintain your login state and preferences. No third-party advertising cookies are used.',
   },
   {
     title: '8. Changes to This Policy',
@@ -47,7 +47,7 @@ const PrivacyPolicy = () => (
         <div>
           <p className="text-xs text-gray-400 mb-1">Last updated: May 2026</p>
           <p className="text-sm text-gray-600 leading-relaxed">
-            This Privacy Policy explains how Nidaam Lab (Pty) Ltd collects, uses, and protects your information when you use TabTrack.
+            This Privacy Policy explains how Nidaam Lab (Pty) Ltd collects, uses, and protects your information when you use Navoq.
           </p>
         </div>
         {SECTIONS.map(({ title, body }) => (
@@ -57,7 +57,7 @@ const PrivacyPolicy = () => (
           </div>
         ))}
       </div>
-      <p className="text-center text-[10px] text-gray-400 py-4">Nidaam Lab (Pty) Ltd — TabTrack v1.0</p>
+      <p className="text-center text-[10px] text-gray-400 py-4">Nidaam Lab (Pty) Ltd — Navoq v1.0</p>
     </div>
   </MainLayout>
 );

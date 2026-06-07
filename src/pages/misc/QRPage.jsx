@@ -1,10 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Share2, Mail, MessageCircle, Link2, Check, X, Download } from 'lucide-react';
+import { Share2, Mail, MessageCircle, Link2, Check, X, Download, Loader } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
-
-const RESTAURANT_NAME = 'The Corner Bistro';
-const QR_VALUE        = 'https://tabtrack.app/join/TCB-001';
+import { supabase } from '../../lib/supabase';
 
 /* ─── helpers ─── */
 function roundRect(ctx, x, y, w, h, r) {
@@ -25,6 +23,36 @@ const QRPage = () => {
   const hiddenQrRef = useRef(null);
   const [showSheet, setShowSheet] = useState(false);
   const [copied, setCopied]       = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [profile, setProfile]     = useState({ businessName: '', qrValue: '' });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('code, business_name')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        setProfile({
+          businessName: data.business_name || 'My Restaurant',
+          qrValue: data.code || '',
+        });
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   /* Build the shareable image canvas */
   const buildCanvas = () => {
@@ -36,7 +64,6 @@ const QRPage = () => {
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
 
-    // Dark green gradient background
     const grad = ctx.createLinearGradient(0, 0, W, H);
     grad.addColorStop(0,   '#0d2137');
     grad.addColorStop(0.5, '#0a3328');
@@ -45,33 +72,28 @@ const QRPage = () => {
     roundRect(ctx, 0, 0, W, H, 48);
     ctx.fill();
 
-    // Subtle top-right glow
     const glow = ctx.createRadialGradient(W * 0.85, H * 0.15, 0, W * 0.85, H * 0.15, W * 0.55);
     glow.addColorStop(0, 'rgba(79,142,247,0.09)');
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
 
-    // White card behind QR
     const pad = 72, qrSize = W - pad * 2;
     const cardY = 80;
     ctx.fillStyle = 'white';
     roundRect(ctx, pad - 28, cardY - 28, qrSize + 56, qrSize + 56, 32);
     ctx.fill();
 
-    // Draw QR code
     ctx.drawImage(qrCanvas, pad, cardY, qrSize, qrSize);
 
-    // Restaurant name
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.font = 'bold 38px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(RESTAURANT_NAME, W / 2, cardY + qrSize + 56 + 62);
+    ctx.fillText(profile.businessName, W / 2, cardY + qrSize + 56 + 62);
 
-    // Tagline
     ctx.fillStyle = 'rgba(52,211,153,0.75)';
     ctx.font = '500 19px sans-serif';
-    ctx.fillText('Scan to open a tab · TabTrack', W / 2, cardY + qrSize + 56 + 104);
+    ctx.fillText('Scan to open a tab · Navoq', W / 2, cardY + qrSize + 56 + 104);
 
     return c;
   };
@@ -83,17 +105,16 @@ const QRPage = () => {
       c.toBlob(resolve, 'image/png');
     });
 
-  /* Native share (iOS / Android / desktop with Web Share API) */
   const handleShare = async () => {
     const blob = await getBlob();
     if (!blob) return;
-    const file = new File([blob], `${RESTAURANT_NAME}-qr.png`, { type: 'image/png' });
+    const file = new File([blob], `${profile.businessName}-qr.png`, { type: 'image/png' });
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
-          title: `${RESTAURANT_NAME} QR Code`,
-          text: `Scan to open a credit tab at ${RESTAURANT_NAME}`,
+          title: `${profile.businessName} QR Code`,
+          text: `Scan to open a credit tab at ${profile.businessName}`,
           files: [file],
         });
         return;
@@ -101,21 +122,20 @@ const QRPage = () => {
         if (e.name === 'AbortError') return;
       }
     }
-    // Fallback: show manual sheet
     setShowSheet(true);
   };
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `Scan this QR code to open a credit tab at ${RESTAURANT_NAME}:\n${QR_VALUE}`
+      `Scan this QR code to open a credit tab at ${profile.businessName}:\n${profile.qrValue}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleEmail = () => {
-    const subject = encodeURIComponent(`${RESTAURANT_NAME} — Tab QR Code`);
+    const subject = encodeURIComponent(`${profile.businessName} — Tab QR Code`);
     const body    = encodeURIComponent(
-      `Hi,\n\nScan or tap the link below to open a credit tab at ${RESTAURANT_NAME}.\n\n${QR_VALUE}\n\nPowered by TabTrack`
+      `Hi,\n\nScan or tap the link below to open a credit tab at ${profile.businessName}.\n\n${profile.qrValue}\n\nPowered by Navoq`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   };
@@ -126,13 +146,14 @@ const QRPage = () => {
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href     = url;
-    a.download = `${RESTAURANT_NAME}-qr.png`;
+    a.download = `${profile.businessName}-qr.png`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(QR_VALUE);
+    if (!profile.qrValue) return;
+    await navigator.clipboard.writeText(profile.qrValue);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -153,7 +174,6 @@ const QRPage = () => {
             boxShadow: '0 20px 60px rgba(10,33,55,0.35)',
           }}
         >
-          {/* Glow */}
           <div
             className="absolute -top-10 -right-10 w-52 h-52 rounded-full pointer-events-none"
             style={{ background: 'radial-gradient(circle, rgba(79,142,247,0.1), transparent 70%)' }}
@@ -165,22 +185,28 @@ const QRPage = () => {
 
           {/* White QR box */}
           <div
-            className="bg-white rounded-2xl p-5 relative z-10 mb-5"
-            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}
+            className="bg-white rounded-2xl p-5 relative z-10 mb-5 flex items-center justify-center"
+            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.25)', minWidth: 220, minHeight: 220 }}
           >
-            <QRCodeCanvas
-              value={QR_VALUE}
-              size={210}
-              bgColor="#ffffff"
-              fgColor="#0d1321"
-              level="H"
-              includeMargin={false}
-            />
+            {loading ? (
+              <Loader size={32} className="text-gray-300 animate-spin" />
+            ) : profile.qrValue ? (
+              <QRCodeCanvas
+                value={profile.qrValue}
+                size={210}
+                bgColor="#ffffff"
+                fgColor="#0d1321"
+                level="H"
+                includeMargin={false}
+              />
+            ) : (
+              <p className="text-xs text-gray-400 text-center px-4">No QR code available — contact support</p>
+            )}
           </div>
 
-          {/* Restaurant name */}
+          {/* Business name */}
           <p className="text-white font-black text-lg tracking-tight font-['Plus_Jakarta_Sans'] relative z-10">
-            {RESTAURANT_NAME}
+            {loading ? '…' : profile.businessName}
           </p>
           <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest mt-1 relative z-10">
             Scan to open a tab
@@ -190,7 +216,8 @@ const QRPage = () => {
         {/* ── Share Button ── */}
         <button
           onClick={handleShare}
-          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] hover:opacity-90"
+          disabled={loading || !profile.qrValue}
+          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] hover:opacity-90 disabled:opacity-50"
           style={{ background: 'linear-gradient(135deg, #0f2347, #0a3328)' }}
         >
           <Share2 size={17} />
@@ -274,7 +301,9 @@ const QRPage = () => {
 
       {/* Hidden high-res QR for canvas export */}
       <div ref={hiddenQrRef} className="hidden" aria-hidden="true">
-        <QRCodeCanvas value={QR_VALUE} size={500} bgColor="#ffffff" fgColor="#0d1321" level="H" />
+        {!loading && profile.qrValue && (
+          <QRCodeCanvas value={profile.qrValue} size={500} bgColor="#ffffff" fgColor="#0d1321" level="H" />
+        )}
       </div>
     </MainLayout>
   );

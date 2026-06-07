@@ -1,17 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronRight } from 'lucide-react';
-
 import MainLayout from '../../components/layout/MainLayout';
-import { MOCK_CUSTOMERS } from '../../data/mockData';
 import { formatZAR } from '../../utils/format';
+import { supabase } from '../../lib/supabase';
 
 const Debtors = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter]           = useState('All');
+  const [customers, setCustomers]     = useState([]);
+  const [loading, setLoading]         = useState(true);
 
-  const filteredDebtors = MOCK_CUSTOMERS.filter(debtor => {
+  // ── Fetch all customers belonging to this owner ───────────────────────────
+  const fetchCustomers = useCallback(async () => {
+    setLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, name, code, balance, joined_date, unsettled_previous_month, previous_month_balance')
+      .eq('owner_id', user.id)
+      .order('name', { ascending: true });
+
+    if (error) { console.error('fetchCustomers:', error); setLoading(false); return; }
+
+    setCustomers(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+
+  // ── Filter ────────────────────────────────────────────────────────────────
+  const filteredDebtors = customers.filter(debtor => {
     const matchesSearch =
       debtor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       debtor.code.toLowerCase().includes(searchQuery.toLowerCase());
@@ -22,6 +45,7 @@ const Debtors = () => {
 
   return (
     <MainLayout title="Active Debtors" showBack>
+
       {/* Search */}
       <div className="relative mb-4">
         <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -49,16 +73,22 @@ const Debtors = () => {
         ))}
         <div className="ml-auto flex items-center">
           <span className="text-[10px] font-black text-gray-400 dark:text-white/30 uppercase tracking-wider">
-            {filteredDebtors.length} shown
+            {loading ? '…' : `${filteredDebtors.length} shown`}
           </span>
         </div>
       </div>
 
       {/* Debtors List */}
       <div className="space-y-2.5">
-        {filteredDebtors.length === 0 ? (
+        {loading ? (
           <div className="py-20 text-center">
-            <p className="text-gray-400 dark:text-white/30 font-medium text-sm">No debtors found</p>
+            <p className="text-gray-400 dark:text-white/30 font-medium text-sm">Loading debtors…</p>
+          </div>
+        ) : filteredDebtors.length === 0 ? (
+          <div className="py-20 text-center">
+            <p className="text-gray-400 dark:text-white/30 font-medium text-sm">
+              {customers.length === 0 ? 'No debtors yet' : 'No debtors found'}
+            </p>
           </div>
         ) : (
           filteredDebtors.map(debtor => (
@@ -96,6 +126,7 @@ const Debtors = () => {
           ))
         )}
       </div>
+
     </MainLayout>
   );
 };

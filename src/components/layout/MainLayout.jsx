@@ -46,7 +46,7 @@ export const Sidebar = () => {
           </svg>
         </div>
         <div>
-          <p className="font-bold text-white text-sm leading-none tracking-tight font-['Plus_Jakarta_Sans']">TabTrack</p>
+          <p className="font-bold text-white text-sm leading-none tracking-tight font-['Plus_Jakarta_Sans']">Navoq</p>
           <p className="text-[10px] text-emerald-400 mt-0.5">Track. Manage. Grow.</p>
         </div>
       </div>

@@ -4,11 +4,11 @@ import MainLayout from '../../components/layout/MainLayout';
 const SECTIONS = [
   {
     title: '1. Acceptance of Terms',
-    body: 'By accessing or using TabTrack, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use the application.',
+    body: 'By accessing or using Navoq, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use the application.',
   },
   {
     title: '2. Description of Service',
-    body: 'TabTrack is a digital credit management platform that allows businesses ("Restaurants/Shops") to manage customer tabs, debtors, and payments, and allows customers to view and manage their outstanding balances.',
+    body: 'Navoq is a digital credit management platform that allows businesses ("Restaurants/Shops") to manage customer tabs, debtors, and payments, and allows customers to view and manage their outstanding balances.',
   },
   {
     title: '3. User Responsibilities',
@@ -16,11 +16,11 @@ const SECTIONS = [
   },
   {
     title: '4. Data Accuracy',
-    body: 'Businesses are responsible for ensuring the accuracy of all orders, amounts, and debtor information entered into the system. TabTrack is not liable for errors resulting from incorrect data entry.',
+    body: 'Businesses are responsible for ensuring the accuracy of all orders, amounts, and debtor information entered into the system. Navoq is not liable for errors resulting from incorrect data entry.',
   },
   {
     title: '5. Payments and Credit',
-    body: 'TabTrack facilitates the tracking of credit between businesses and their customers. It does not process financial transactions directly. All payment arrangements are between the business and customer.',
+    body: 'Navoq facilitates the tracking of credit between businesses and their customers. It does not process financial transactions directly. All payment arrangements are between the business and customer.',
   },
   {
     title: '6. Limitation of Liability',
@@ -47,7 +47,7 @@ const TermsAndConditions = () => (
         <div>
           <p className="text-xs text-gray-400 mb-1">Last updated: May 2026</p>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Please read these Terms and Conditions carefully before using TabTrack, operated by Nidaam Lab (Pty) Ltd.
+            Please read these Terms and Conditions carefully before using Navoq, operated by Nidaam Lab (Pty) Ltd.
           </p>
         </div>
         {SECTIONS.map(({ title, body }) => (
@@ -57,7 +57,7 @@ const TermsAndConditions = () => (
           </div>
         ))}
       </div>
-      <p className="text-center text-[10px] text-gray-400 py-4">Nidaam Lab (Pty) Ltd — TabTrack v1.0</p>
+      <p className="text-center text-[10px] text-gray-400 py-4">Nidaam Lab (Pty) Ltd — Navoq v1.0</p>
     </div>
   </MainLayout>
 );

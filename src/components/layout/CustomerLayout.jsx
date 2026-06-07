@@ -1,58 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  User, QrCode, History, ChevronLeft, Home,
-  Bell, ShoppingBag, AlertTriangle, CheckCircle, X, Settings
+  User, QrCode, History, ChevronLeft, Bell,
+  ShoppingBag, CreditCard, AlertTriangle, CheckCircle, X, Settings
 } from 'lucide-react';
+import { getNotifications, subscribe } from '../../store/notificationStore';
 
-const CUSTOMER_NOTIFICATIONS = [
-  {
-    id: 1, type: 'order', unread: true,
-    title: 'New charge added',
-    body: 'The Green Bistro — Chicken wrap',
-    amount: 'R 85,00',
-    time: 'Just now',
-    icon: ShoppingBag,
-    iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    id: 2, type: 'dispute', unread: true,
-    title: 'Dispute resolved',
-    body: 'The Corner Bistro adjusted your order',
-    amount: 'R 45,00',
-    time: '1h ago',
-    icon: CheckCircle,
-    iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-  },
-  {
-    id: 3, type: 'reminder', unread: false,
-    title: 'Month end reminder',
-    body: 'Your tab at The Green Bistro is due',
-    amount: 'R 320,00',
-    time: 'Yesterday',
-    icon: AlertTriangle,
-    iconBg: 'bg-orange-50 dark:bg-orange-500/10',
-    iconColor: 'text-orange-500 dark:text-orange-400',
-  },
-];
+const NOTIF_ICON_MAP = {
+  order:    { icon: ShoppingBag,   iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
+  payment:  { icon: CreditCard,    iconBg: 'bg-blue-50 dark:bg-blue-500/10',        iconColor: 'text-blue-600 dark:text-blue-400'       },
+  dispute:  { icon: AlertTriangle, iconBg: 'bg-orange-50 dark:bg-orange-500/10',    iconColor: 'text-orange-500 dark:text-orange-400'   },
+  resolved: { icon: CheckCircle,   iconBg: 'bg-emerald-50 dark:bg-emerald-500/10',  iconColor: 'text-emerald-600 dark:text-emerald-400' },
+};
+const enrichNotif = (n) => ({ ...NOTIF_ICON_MAP[n.type] || NOTIF_ICON_MAP.order, ...n });
 
 const NAV_ITEMS = [
-  { to: '/customer/profile',   label: 'Profile', icon: User },
-  { to: '/customer/scan',      label: 'Scan',    icon: QrCode },
-  { to: '/customer/history',   label: 'History', icon: History },
+  { to: '/customer/profile',  label: 'Profile', icon: User    },
+  { to: '/customer/scan',     label: 'Scan',    icon: QrCode  },
+  { to: '/customer/history',  label: 'History', icon: History },
 ];
 
 /* ─── Notification Bell ─── */
-const NotificationBell = ({ notifications }) => {
+const NotificationBell = () => {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(notifications);
+  const [open, setOpen]   = useState(false);
+  const [items, setItems] = useState(() => getNotifications().map(enrichNotif));
   const unreadCount = items.filter(n => n.unread).length;
 
+  useEffect(() => {
+    const unsub = subscribe(notifs => setItems(notifs.map(enrichNotif)));
+    return unsub;
+  }, []);
+
   const markAllRead = () => setItems(prev => prev.map(n => ({ ...n, unread: false })));
-  const dismiss = (id) => setItems(prev => prev.filter(n => n.id !== id));
+  const dismiss     = (id) => setItems(prev => prev.filter(n => n.id !== id));
 
   return (
     <div className="relative">
@@ -111,7 +92,10 @@ const NotificationBell = ({ notifications }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{n.title}</p>
-                          <button onClick={() => dismiss(n.id)} className="text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/40 flex-shrink-0">
+                          <button
+                            onClick={() => dismiss(n.id)}
+                            className="text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/40 flex-shrink-0"
+                          >
                             <X size={12} />
                           </button>
                         </div>
@@ -148,8 +132,6 @@ const CustomerSidebar = () => {
   const loc = useLocation();
   return (
     <aside className="hidden md:flex w-56 lg:w-60 flex-shrink-0 flex-col h-full bg-[#0d1321] border-r border-white/5">
-
-      {/* Logo */}
       <div className="px-4 lg:px-5 py-5 lg:py-6 flex items-center gap-3">
         <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
           <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
@@ -161,12 +143,11 @@ const CustomerSidebar = () => {
           </svg>
         </div>
         <div>
-          <p className="font-bold text-white text-[14px] lg:text-[15px] leading-none tracking-tight font-['Plus_Jakarta_Sans']">TabTrack</p>
+          <p className="font-bold text-white text-[14px] lg:text-[15px] leading-none tracking-tight font-['Plus_Jakarta_Sans']">Navoq</p>
           <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mt-0.5">Customer Portal</p>
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 lg:px-3 space-y-0.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
           const active = loc.pathname === to;
@@ -187,7 +168,6 @@ const CustomerSidebar = () => {
         })}
       </nav>
 
-      {/* Attribution */}
       <div className="px-4 lg:px-5 py-5 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <p className="text-[10px] text-white/40 leading-relaxed">A product of</p>
         <p className="text-xs text-white/60 font-semibold tracking-wide mt-0.5">Nidaam Labs (Pty) Ltd</p>
@@ -197,18 +177,37 @@ const CustomerSidebar = () => {
 };
 
 /* ─── CustomerLayout ─── */
-const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNav = false }) => {
+const CustomerLayout = ({ children, title, showBack = false, backTo, rightAction, hideNav = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const mainRef = useRef(null);
+  const mainRef  = useRef(null);
 
+  // FIX 1: Scroll to top on every route change — with a small delay so the
+  // ref is guaranteed to be attached after the new page mounts.
   useEffect(() => {
-    if (mainRef.current) mainRef.current.scrollTo(0, 0);
+    const frame = requestAnimationFrame(() => {
+      if (mainRef.current) mainRef.current.scrollTop = 0;
+    });
+    return () => cancelAnimationFrame(frame);
   }, [location.pathname]);
 
-  return (
-    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-[#eef2f7] dark:bg-[#0a0f1a] font-['Inter']">
+  // FIX 2: Smart back navigation — use history back if no explicit backTo,
+  // otherwise go to the specified path.
+  const handleBack = () => {
+    if (backTo) {
+      navigate(backTo);
+    } else {
+      navigate(-1);
+    }
+  };
 
+  return (
+    // FIX 3: Replace h-screen + overflow-hidden with dvh and explicit layout
+    // to prevent the Android browser chrome causing a double-scroll context.
+    <div
+      className="flex flex-col md:flex-row bg-[#eef2f7] dark:bg-[#0a0f1a] font-['Inter']"
+      style={{ height: '100dvh', overflow: 'hidden' }}
+    >
       <CustomerSidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -220,8 +219,9 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
         >
           <div className="flex items-center gap-3">
             {showBack ? (
+              // FIX 2 applied here — uses handleBack instead of navigate(backTo)
               <button
-                onClick={() => navigate(-1)}
+                onClick={handleBack}
                 className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center active:scale-90 transition-all"
               >
                 <ChevronLeft size={20} className="text-gray-600 dark:text-white/60" />
@@ -238,7 +238,7 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 dark:text-white text-sm leading-none font-['Plus_Jakarta_Sans']">TabTrack</p>
+                  <p className="font-bold text-gray-900 dark:text-white text-sm leading-none font-['Plus_Jakarta_Sans']">Navoq</p>
                   <p className="text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider mt-0.5">Customer Portal</p>
                 </div>
               </div>
@@ -250,12 +250,12 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
 
             {!showBack && !title && (
               <h1 className="hidden md:block text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white leading-tight tracking-tight font-['Plus_Jakarta_Sans']">
-                John
+                Dashboard
               </h1>
             )}
           </div>
 
-          {/* Right side: LIVE + bell + settings */}
+          {/* Right: live pill + bell + settings */}
           <div className="flex items-center gap-2">
             {rightAction ? (
               <div>{rightAction}</div>
@@ -265,7 +265,7 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
                 <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live</span>
               </div>
             )}
-            <NotificationBell notifications={CUSTOMER_NOTIFICATIONS} />
+            <NotificationBell />
             <button
               onClick={() => navigate('/customer/settings')}
               className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-center active:scale-90 transition-all hover:bg-gray-100 dark:hover:bg-white/10"
@@ -283,9 +283,13 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
         )}
 
         {/* Page content */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto px-4 md:px-6 pt-4 md:pt-5 pb-32 md:pb-8">
+        <main
+          ref={mainRef}
+          // FIX 3: Use -webkit-overflow-scrolling for smooth momentum scrolling on iOS
+          className="flex-1 overflow-y-auto px-4 md:px-6 pt-4 md:pt-5 pb-32 md:pb-8"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {children}
-          {/* Mobile-only attribution */}
           <div className="md:hidden mt-8 pb-2 text-center">
             <p className="text-[10px] text-gray-400 dark:text-white/20">A product of</p>
             <p className="text-xs text-gray-500 dark:text-white/30 font-semibold tracking-wide mt-0.5">Nidaam Labs (Pty) Ltd</p>
@@ -300,7 +304,7 @@ const CustomerLayout = ({ children, title, showBack = false, rightAction, hideNa
               style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}
             >
               {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-                const active = location.pathname === to;
+                const active    = location.pathname === to;
                 const isSpecial = to === '/customer/scan';
                 if (isSpecial) {
                   return (

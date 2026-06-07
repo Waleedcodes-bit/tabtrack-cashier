@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NavoqLogo from '../assets/NavoqLogo.png';
 
 
 const SplashScreen = ({ onDone }) => {
@@ -17,18 +18,15 @@ const SplashScreen = ({ onDone }) => {
 
       {/* Logo */}
       <div className="w-24 h-24 rounded-3xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center mb-6">
-  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-    <rect x="8" y="13" width="22" height="4.5" rx="2.25" fill="#34d399"/>
-    <rect x="8" y="22" width="16" height="4.5" rx="2.25" fill="rgba(52,211,153,0.6)"/>
-    <rect x="8" y="31" width="19" height="4.5" rx="2.25" fill="rgba(52,211,153,0.35)"/>
-    <circle cx="36" cy="33" r="9" fill="#0a3328" stroke="#34d399" stroke-width="2"/>
-    <path d="M32.5 33l2.2 2.2 3.8-3.8" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</div>
+        <img src={NavoqLogo} alt="Navoq logo" className="w-full h-full object-contain" />
+      </div>
+      
+  
+
 
       {/* Text */}
       <div className="animate-[fadeInUp_0.5s_ease_0.65s_both] text-center">
-        <p className="font-['Plus_Jakarta_Sans'] text-3xl font-extrabold text-white tracking-tight mb-1.5">TabTrack</p>
+        <p className="font-['Plus_Jakarta_Sans'] text-3xl font-extrabold text-white tracking-tight mb-1.5">Navoq</p>
         <p className="font-['Inter'] text-[11px] font-bold tracking-[3px] uppercase text-emerald-400/80">Track. Manage. Grow.</p>
       </div>
 

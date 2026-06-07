@@ -1,20 +1,18 @@
 {
-  "short_name": "TabTrack",
-  "name": "TabTrack Restaurant Credit",
-  "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    }
-  ],
-  "start_url": ".",
+  "short_name": "Navoq",
+  "name": "Navoq",
+  "description": "Track credit, manage debtors, and settle accounts.",
+  "start_url": "/cashier/login",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#22C55E",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "theme_color": "#061a12",
+  "background_color": "#061a12",
+  "categories": ["finance", "business"],
+  "icons": [
+    { "src": "/icons/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icons/favicon-96x96.png", "sizes": "96x96", "type": "image/png" }
+  ]
 }

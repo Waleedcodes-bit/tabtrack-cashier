@@ -1,8 +1,8 @@
 export const MOCK_CUSTOMERS = [
-  { id: '1', name: 'John Doe',      code: 'JD-001', balance: 450.50,  joinedDate: '2025-01-15', unsettledPreviousMonth: true,  previousMonthBalance: 210.00 },
-  { id: '2', name: 'Sarah Smith',   code: 'SS-002', balance: 0,       joinedDate: '2025-02-20', unsettledPreviousMonth: false, previousMonthBalance: 0      },
-  { id: '3', name: 'Mike Ross',     code: 'MR-003', balance: 1200.00, joinedDate: '2025-03-05', unsettledPreviousMonth: true,  previousMonthBalance: 395.00 },
-  { id: '4', name: 'Lebo Dlamini',  code: 'LD-004', balance: 320.00,  joinedDate: '2025-04-10', unsettledPreviousMonth: false, previousMonthBalance: 0      },
+  { id: '1', name: 'John Doe',      code: 'JD-001', businessType: 'restaurant', balance: 450.50,  joinedDate: '2025-01-15', unsettledPreviousMonth: true,  previousMonthBalance: 210.00 },
+  { id: '2', name: 'Sarah Smith',   code: 'SS-002', businessType: 'shop',       balance: 0,       joinedDate: '2025-02-20', unsettledPreviousMonth: false, previousMonthBalance: 0      },
+  { id: '3', name: 'Mike Ross',     code: 'MR-003', businessType: 'restaurant', balance: 1200.00, joinedDate: '2025-03-05', unsettledPreviousMonth: true,  previousMonthBalance: 395.00 },
+  { id: '4', name: 'Lebo Dlamini',  code: 'LD-004', businessType: 'shop',       balance: 320.00,  joinedDate: '2025-04-10', unsettledPreviousMonth: false, previousMonthBalance: 0      },
 ];
 
 export const MOCK_ORDERS = [

@@ -1,77 +1,126 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UtensilsCrossed, User, ArrowRight } from 'lucide-react';
-import logo from '../../assets/tabtrack-logo.png.png';
+import NavoqLogo from '../../assets/NavoqLogo.png';
+
+
 
 const RoleSelection = () => {
   const navigate = useNavigate();
 
-  return (
-    <div className="min-h-screen bg-[#080d17] flex items-center justify-center px-6 font-['DM_Sans']">
+return (
+  <div
+    className="min-h-screen relative overflow-hidden flex items-center justify-center px-6 font-['Poppins']"
+    style={{
+      background:
+        'linear-gradient(135deg, #07111f 0%, #031d1b 45%, #07111f 100%)',
+    }}
+  >
+    {/* Background Effects */}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-500/10 blur-[140px]" />
+      <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-cyan-500/10 blur-[140px]" />
 
-      {/* Glow blobs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-emerald-500/10 blur-[120px]" />
-        <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full bg-cyan-500/5 blur-[100px]" />
+      {/* Decorative Circles */}
+      <div className="absolute top-0 right-0 w-80 h-80 border border-white/5 rounded-full" />
+      <div className="absolute top-4 right-4 w-72 h-72 border border-white/5 rounded-full" />
+      <div className="absolute top-8 right-8 w-64 h-64 border border-white/5 rounded-full" />
+
+      <div className="absolute bottom-0 left-0 w-80 h-80 border border-white/5 rounded-full" />
+      <div className="absolute bottom-4 left-4 w-72 h-72 border border-white/5 rounded-full" />
+      <div className="absolute bottom-8 left-8 w-64 h-64 border border-white/5 rounded-full" />
+    </div>
+
+    <div className="relative z-10 w-full max-w-2xl">
+
+      {/* Logo Section */}
+      <div className="text-center mb-12">
+  <img src={NavoqLogo} alt="Navoq logo" className="w-20 h-20 object-contain mx-auto" />
+  <h1 className="text-5xl font-bold text-white tracking-tight">Navoq</h1>
+  <p className="text-gray-400 mt-3 text-lg">Track. Settle. Done.</p>
+</div>
+
+      {/* Continue As */}
+      <div className="text-center mb-6">
+        <p className="text-xs uppercase tracking-[0.35em] text-gray-500 font-semibold">
+          Continue As
+        </p>
       </div>
 
-      <div className="relative w-full max-w-sm">
+      {/* Cards */}
+      <div className="space-y-5">
 
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-12">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mb-4">
-            <img src={logo} alt="Logo" className="w-9 h-9 object-contain" />
+        {/* Restaurant */}
+        <button
+          onClick={() => navigate('/cashier/login')}
+          className="group w-full text-left rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all duration-300"
+        >
+          <div className="flex items-center">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20">
+              <UtensilsCrossed
+                size={26}
+                className="text-emerald-400"
+              />
+            </div>
+
+            <div className="flex-1 ml-5">
+              <h3 className="text-xl font-semibold text-white">
+                Restaurant / Shop
+              </h3>
+
+              <p className="text-gray-400 mt-1">
+                Manage debtors, tabs and payments
+              </p>
+            </div>
+
+            <ArrowRight
+              size={24}
+              className="text-gray-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">TabTrack</h1>
-          <p className="text-sm text-gray-500 mt-1">Track. Settle. Done.</p>
-        </div>
+        </button>
 
-        {/* Label */}
-        <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-4 text-center">
-          Continue as
-        </p>
-
-        {/* Cards */}
-        <div className="space-y-3">
-
-          {/* Restaurant / Shop */}
-          <button
-            onClick={() => navigate('/cashier/login')}
-            className="w-full group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all active:scale-[0.98] text-left"
-          >
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500 transition-colors">
-              <UtensilsCrossed size={20} className="text-emerald-400 group-hover:text-emerald-950 transition-colors" />
+        {/* Customer */}
+        <button
+          onClick={() => navigate('/customer/login')}
+          className="group w-full text-left rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all duration-300"
+        >
+          <div className="flex items-center">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-indigo-500/20 to-indigo-500/5 border border-indigo-500/20">
+              <User
+                size={26}
+                className="text-indigo-400"
+              />
             </div>
-            <div className="flex-1">
-              <p className="font-bold text-white text-sm">Restaurant / Shop</p>
-              <p className="text-xs text-gray-500 mt-0.5">Manage debtors, tabs and payments</p>
-            </div>
-            <ArrowRight size={16} className="text-gray-600 group-hover:text-emerald-400 transition-colors" />
-          </button>
 
-          {/* Customer */}
-          <button
-            onClick={() => navigate('/customer/login')}
-            className="w-full group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5 transition-all active:scale-[0.98] text-left"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500 transition-colors">
-              <User size={20} className="text-blue-400 group-hover:text-white transition-colors" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white text-sm">Customer</p>
-              <p className="text-xs text-gray-500 mt-0.5">View your tab, log orders and disputes</p>
-            </div>
-            <ArrowRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors" />
-          </button>
+            <div className="flex-1 ml-5">
+              <h3 className="text-xl font-semibold text-white">
+                Customer
+              </h3>
 
-        </div>
+              <p className="text-gray-400 mt-1">
+                View your tab, log orders and disputes
+              </p>
+            </div>
 
-        <p className="text-center text-xs text-gray-700 mt-10">
-          TabTrack v1.0 — Digital Credit Management
+            <ArrowRight
+              size={24}
+              className="text-gray-500 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all"
+            />
+          </div>
+        </button>
+
+      </div>
+
+      {/* Footer */}
+      <div className="mt-14 text-center">
+        <p className="text-sm text-gray-500">
+          Navoq v1.0 — Digital Credit Management
         </p>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default RoleSelection;
