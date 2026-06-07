@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { supabase } from './lib/supabase';
 import { subscribeToPush } from './utils/pushNotifications';
 
+
 // Auth
 import RoleSelection from './pages/auth/RoleSelection';
 import CashierAuth from './pages/auth/CashierAuth';
@@ -36,6 +37,7 @@ import TransactionHistory from './pages/misc/TransactionHistory';
 import TermsAndConditions from './pages/misc/TermsAndConditions';
 import PrivacyPolicy from './pages/misc/PrivacyPolicy';
 import Profile from './pages/misc/Profile';
+import Welcome from './pages/misc/Welcome';
 
 // Customer Pages
 import CustomerDashboard from './pages/customer/CustomerDashboard';
@@ -129,7 +131,7 @@ function App() {
     if (savedRole === 'customer') return <Navigate to="/customer/login" replace />;
     if (savedRole === 'admin')    return <Navigate to="/admin/login" replace />;
     // Brand new user — show RoleSelection
-    return <RoleSelection />;
+    return <Navigate to="/welcome" replace />;
   };
 
   return (
@@ -165,6 +167,7 @@ function App() {
           <Route path="/profile" element={<OwnerRoute session={session} profile={profile}><Profile /></OwnerRoute>} />
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/welcome" element={<Welcome />} />
 
           {/* Admin App */}
           <Route path="/admin/dashboard" element={<AdminRoute session={session} profile={profile}><AdminDashboard /></AdminRoute>} />
