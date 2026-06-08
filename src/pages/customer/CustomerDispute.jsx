@@ -94,51 +94,36 @@ const CustomerDisputes = () => {
   }, [fetchEdits]);
 
   const handleAccept = async (id) => {
-    const edit = requests.find(r => r.id === id);
-    if (!edit) return;
+  const edit = requests.find(r => r.id === id);
+  if (!edit) return;
 
-    const { error: editError } = await supabase
-      .from('order_edits')
-      .update({ status: 'accepted' })
-      .eq('id', id);
+  const { error: editError } = await supabase
+    .from('order_edits')
+    .update({ status: 'accepted' })
+    .eq('id', id);
+  if (editError) { console.error('handleAccept:', editError); return; }
 
-    if (editError) { console.error('handleAccept:', editError); return; }
+  const { error: orderError } = await supabase
+    .from('orders')
+    .update({ amount: edit.newAmount })
+    .eq('id', edit.orderId);
+  if (orderError) { console.error('handleAccept order update:', orderError); return; }
 
-    const { error: orderError } = await supabase
-      .from('orders')
-      .update({ amount: edit.newAmount })
-      .eq('id', edit.orderId);
+  // ← deleted the manual customers.balance update block
 
-    if (orderError) { console.error('handleAccept order update:', orderError); return; }
+  if (edit.ownerId) {
+    await sendPushNotification({
+      userId: edit.ownerId,
+      title: 'Dispute accepted',
+      body: `${edit.orderName} — amount changed to ${formatZAR(edit.newAmount)}`,
+      url: '/debtors',
+    });
+  }
 
-    const diff = edit.newAmount - edit.oldAmount;
-    const { data: customer } = await supabase
-      .from('customers')
-      .select('balance')
-      .eq('id', edit.customerId)
-      .single();
-
-    if (customer) {
-      await supabase
-        .from('customers')
-        .update({ balance: (customer.balance || 0) + diff })
-        .eq('id', edit.customerId);
-    }
-
-    // Notify cashier that dispute was accepted
-    if (edit.ownerId) {
-      await sendPushNotification({
-        userId: edit.ownerId,
-        title:  'Dispute accepted',
-        body:   `${edit.orderName} — amount changed to ${formatZAR(edit.newAmount)}`,
-        url:    '/debtors',
-      });
-    }
-
-    setRequests(prev =>
-      prev.map(r => r.id === id ? { ...r, status: 'accepted' } : r)
-    );
-  };
+  setRequests(prev =>
+    prev.map(r => r.id === id ? { ...r, status: 'accepted' } : r)
+  );
+};
 
   const handleReject = async (id) => {
     const edit = requests.find(r => r.id === id);

@@ -5,9 +5,39 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body,
+#root {
+  min-height: 100%;
+  background: #0a1628;
+}
+
 body {
   font-family: 'Inter', sans-serif;
-  background: #EEF2F7;
+  background: #0a1628;
+  overflow-x: hidden;
+}
+
+/* Page transition — fade in on every route mount */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-transition {
+  animation: pageFadeIn 0.22s ease both;
+}
+
+/* Prevent layout shift during lazy load */
+#root {
+  isolation: isolate;
 }
 
 * {

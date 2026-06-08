@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import SplashScreen from './components/SplashScreen';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import PageWrapper from './components/PageWrapper';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { supabase } from './lib/supabase';
 import { subscribeToPush } from './utils/pushNotifications';
@@ -50,9 +51,9 @@ const CustomerSettings      = lazy(() => import('./pages/customer/CustomerSettin
 const CustomerNotifications = lazy(() => import('./pages/customer/CustomerNotifications'));
 const CustomerInvite        = lazy(() => import('./pages/customer/CustomerInvite'));
 
-// Spinner shown while a lazy page loads
+// Spinner — matches app bg so no colour flash
 const PageSpinner = () => (
-  <div className="flex h-screen items-center justify-center bg-[#0a1628]">
+  <div className="flex h-screen w-full items-center justify-center" style={{ background: '#0a1628' }}>
     <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
   </div>
 );
@@ -61,19 +62,19 @@ const PageSpinner = () => (
 function OwnerRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/cashier/login" replace />;
   if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
-  return children;
+  return <PageWrapper>{children}</PageWrapper>;
 }
 
 function CustomerRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/customer/login" replace />;
   if (profile && profile.role !== 'customer') return <Navigate to="/" replace />;
-  return children;
+  return <PageWrapper>{children}</PageWrapper>;
 }
 
 function AdminRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/admin/login" replace />;
   if (profile && profile.role !== 'admin') return <Navigate to="/" replace />;
-  return children;
+  return <PageWrapper>{children}</PageWrapper>;
 }
 
 function App() {
@@ -120,21 +121,22 @@ function App() {
   if (splash) return <SplashScreen onDone={() => setSplash(false)} />;
   if (loading) return <PageSpinner />;
 
-  const savedRole = localStorage.getItem('navoq_role');
-
   const HomeRoute = () => {
-  const isInstalled = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
+    const isInstalled =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches ||
+      window.navigator.standalone === true ||
+      document.referrer.includes('android-app://');
 
-  if (session && profile) {
-    if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
-    if (profile.role === 'customer') return <Navigate to="/customer/dashboard" replace />;
-    if (profile.role === 'admin')    return <Navigate to="/admin/dashboard" replace />;
-  }
+    if (session && profile) {
+      if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
+      if (profile.role === 'customer') return <Navigate to="/customer/dashboard" replace />;
+      if (profile.role === 'admin')    return <Navigate to="/admin/dashboard" replace />;
+    }
 
-  if (isInstalled) return <RoleSelection />;
-  return <Navigate to="/welcome" replace />;
-};
+    if (isInstalled) return <RoleSelection />;
+    return <Navigate to="/welcome" replace />;
+  };
 
   return (
     <ThemeProvider>
@@ -146,15 +148,15 @@ function App() {
             <Route path="/" element={<HomeRoute />} />
 
             {/* Auth */}
-            <Route path="/cashier/login"    element={<CashierAuth />} />
-            <Route path="/cashier/register" element={<CashierAuth />} />
-            <Route path="/customer/login"    element={<CustomerAuth />} />
-            <Route path="/customer/register" element={<CustomerAuth />} />
-            <Route path="/admin/login"       element={<AdminAuth />} />
-            <Route path="/welcome"           element={<Welcome />} />
-            <Route path="/terms"             element={<TermsAndConditions />} />
-            <Route path="/privacy"           element={<PrivacyPolicy />} />
-            <Route path="/notifications"     element={<Notifications />} />
+            <Route path="/cashier/login"    element={<PageWrapper><CashierAuth /></PageWrapper>} />
+            <Route path="/cashier/register" element={<PageWrapper><CashierAuth /></PageWrapper>} />
+            <Route path="/customer/login"    element={<PageWrapper><CustomerAuth /></PageWrapper>} />
+            <Route path="/customer/register" element={<PageWrapper><CustomerAuth /></PageWrapper>} />
+            <Route path="/admin/login"       element={<PageWrapper><AdminAuth /></PageWrapper>} />
+            <Route path="/welcome"           element={<PageWrapper><Welcome /></PageWrapper>} />
+            <Route path="/terms"             element={<PageWrapper><TermsAndConditions /></PageWrapper>} />
+            <Route path="/privacy"           element={<PageWrapper><PrivacyPolicy /></PageWrapper>} />
+            <Route path="/notifications"     element={<PageWrapper><Notifications /></PageWrapper>} />
 
             {/* Cashier */}
             <Route path="/dashboard"          element={<OwnerRoute session={session} profile={profile}><Dashboard /></OwnerRoute>} />
