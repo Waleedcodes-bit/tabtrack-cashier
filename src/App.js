@@ -1,16 +1,18 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import SplashScreen from './components/SplashScreen';
-import PageWrapper from './components/PageWrapper';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { supabase } from './lib/supabase';
 import { subscribeToPush } from './utils/pushNotifications';
 
 // Auth (small, keep eager)
-import RoleSelection from './pages/auth/RoleSelection';
-import CashierAuth from './pages/auth/CashierAuth';
-import CustomerAuth from './pages/auth/CustomerAuth';
-import Welcome from './pages/misc/Welcome';
+import RoleSelection    from './pages/auth/RoleSelection';
+import CashierAuth      from './pages/auth/CashierAuth';
+import CustomerAuth     from './pages/auth/CustomerAuth';
+import Welcome          from './pages/misc/Welcome';
+import VerifyOTP        from './pages/auth/VerifyOTP';
+import ForgotPassword   from './pages/auth/ForgotPassword';
+import ResetPassword    from './pages/auth/ResetPassword';
 
 // Admin (lazy)
 const AdminAuth       = lazy(() => import('./pages/admin/AdminAuth'));
@@ -25,56 +27,63 @@ const ReportsPage     = lazy(() => import('./pages/admin/ReportsPage'));
 const ActivityPage    = lazy(() => import('./pages/admin/ActivityPage'));
 
 // Cashier (lazy)
-const Dashboard           = lazy(() => import('./pages/dashboard/Dashboard'));
-const Debtors             = lazy(() => import('./pages/debtors/Debtors'));
-const DebtorDetail        = lazy(() => import('./pages/debtors/DebtorDetail'));
-const DebtorHistory       = lazy(() => import('./pages/debtors/DebtorHistory'));
-const MonthEnd            = lazy(() => import('./pages/debtors/MonthEnd'));
-const AddDebtor           = lazy(() => import('./pages/debtors/AddDebtor'));
-const Invite              = lazy(() => import('./pages/misc/Invite'));
-const Settings            = lazy(() => import('./pages/misc/Settings'));
-const QRPage              = lazy(() => import('./pages/misc/QRPage'));
-const TransactionHistory  = lazy(() => import('./pages/misc/TransactionHistory'));
-const TermsAndConditions  = lazy(() => import('./pages/misc/TermsAndConditions'));
-const PrivacyPolicy       = lazy(() => import('./pages/misc/PrivacyPolicy'));
-const Profile             = lazy(() => import('./pages/misc/Profile'));
-const Notifications       = lazy(() => import('./pages/misc/Notifications'));
+const Dashboard          = lazy(() => import('./pages/dashboard/Dashboard'));
+const Debtors            = lazy(() => import('./pages/debtors/Debtors'));
+const DebtorDetail       = lazy(() => import('./pages/debtors/DebtorDetail'));
+const DebtorHistory      = lazy(() => import('./pages/debtors/DebtorHistory'));
+const DebtorPayments     = lazy(() => import('./pages/debtors/DebtorPayments'));
+const MonthEnd           = lazy(() => import('./pages/debtors/MonthEnd'));
+const AddDebtor          = lazy(() => import('./pages/debtors/AddDebtor'));
+const Invite             = lazy(() => import('./pages/misc/Invite'));
+const Settings           = lazy(() => import('./pages/misc/Settings'));
+const QRPage             = lazy(() => import('./pages/misc/QRPage'));
+const TransactionHistory = lazy(() => import('./pages/misc/TransactionHistory'));
+const TermsAndConditions = lazy(() => import('./pages/misc/TermsAndConditions'));
+const PrivacyPolicy      = lazy(() => import('./pages/misc/PrivacyPolicy'));
+const JoinApp            = lazy(() => import('./pages/misc/JoinApp'));
+const Profile            = lazy(() => import('./pages/misc/Profile'));
+const Notifications      = lazy(() => import('./pages/misc/Notifications'));
+
+// Legal pages
+const WebPrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPage'));
+const WebTermsOfService= lazy(() => import('./pages/legal/TermsPage'));
+const WebAbout         = lazy(() => import('./pages/legal/AboutPage'));
+const WebContact       = lazy(() => import('./pages/legal/ContactPage'));
 
 // Customer (lazy)
 const CustomerDashboard     = lazy(() => import('./pages/customer/CustomerDashboard'));
 const RestaurantView        = lazy(() => import('./pages/customer/RestaurantView'));
 const Scan                  = lazy(() => import('./pages/customer/Scan'));
 const CustomerHistory       = lazy(() => import('./pages/customer/CustomerHistory'));
+const CustomerPayments      = lazy(() => import('./pages/customer/CustomerPayments'));
 const CustomerProfile       = lazy(() => import('./pages/customer/CustomerProfile'));
 const CustomerDispute       = lazy(() => import('./pages/customer/CustomerDispute'));
 const CustomerSettings      = lazy(() => import('./pages/customer/CustomerSettings'));
 const CustomerNotifications = lazy(() => import('./pages/customer/CustomerNotifications'));
 const CustomerInvite        = lazy(() => import('./pages/customer/CustomerInvite'));
 
-// Spinner — matches app bg so no colour flash
 const PageSpinner = () => (
-  <div className="flex h-screen w-full items-center justify-center" style={{ background: '#0a1628' }}>
+  <div className="flex h-screen items-center justify-center bg-[#0a1628]">
     <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
-// --- Route Guards ---
 function OwnerRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/cashier/login" replace />;
   if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
-  return <PageWrapper>{children}</PageWrapper>;
+  return children;
 }
 
 function CustomerRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/customer/login" replace />;
   if (profile && profile.role !== 'customer') return <Navigate to="/" replace />;
-  return <PageWrapper>{children}</PageWrapper>;
+  return children;
 }
 
 function AdminRoute({ session, profile, children }) {
   if (!session) return <Navigate to="/admin/login" replace />;
   if (profile && profile.role !== 'admin') return <Navigate to="/" replace />;
-  return <PageWrapper>{children}</PageWrapper>;
+  return children;
 }
 
 function App() {
@@ -102,18 +111,19 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── FIXED: subscribeToPush is now inside the function ──────────────────
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
 
-    setProfile(data);
+    if (error) console.error('Profile fetch failed:', error);
+    setProfile(data || null);
     setLoading(false);
 
     if (data) {
-      localStorage.setItem('navoq_role', data.role);
       subscribeToPush(userId);
     }
   };
@@ -122,11 +132,8 @@ function App() {
   if (loading) return <PageSpinner />;
 
   const HomeRoute = () => {
-    const isInstalled =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: minimal-ui)').matches ||
-      window.navigator.standalone === true ||
-      document.referrer.includes('android-app://');
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
 
     if (session && profile) {
       if (profile.role === 'owner')    return <Navigate to="/dashboard" replace />;
@@ -143,33 +150,47 @@ function App() {
       <Router>
         <Suspense fallback={<PageSpinner />}>
           <Routes>
-
             {/* Entry Point */}
             <Route path="/" element={<HomeRoute />} />
 
             {/* Auth */}
-            <Route path="/cashier/login"    element={<PageWrapper><CashierAuth /></PageWrapper>} />
-            <Route path="/cashier/register" element={<PageWrapper><CashierAuth /></PageWrapper>} />
-            <Route path="/customer/login"    element={<PageWrapper><CustomerAuth /></PageWrapper>} />
-            <Route path="/customer/register" element={<PageWrapper><CustomerAuth /></PageWrapper>} />
-            <Route path="/admin/login"       element={<PageWrapper><AdminAuth /></PageWrapper>} />
-            <Route path="/welcome"           element={<PageWrapper><Welcome /></PageWrapper>} />
-            <Route path="/terms"             element={<PageWrapper><TermsAndConditions /></PageWrapper>} />
-            <Route path="/privacy"           element={<PageWrapper><PrivacyPolicy /></PageWrapper>} />
-            <Route path="/notifications"     element={<PageWrapper><Notifications /></PageWrapper>} />
+            <Route path="/cashier/login"    element={<CashierAuth />} />
+            <Route path="/cashier/register" element={<CashierAuth />} />
+            <Route path="/customer/login"   element={<CustomerAuth />} />
+            <Route path="/customer/register"element={<CustomerAuth />} />
+            <Route path="/admin/login"      element={<AdminAuth />} />
+            <Route path="/verify-otp"       element={<VerifyOTP />} />
+            <Route path="/forgot-password"  element={<ForgotPassword />} />
+            <Route path="/reset-password"   element={<ResetPassword />} />
 
-            {/* Cashier */}
-            <Route path="/dashboard"          element={<OwnerRoute session={session} profile={profile}><Dashboard /></OwnerRoute>} />
-            <Route path="/debtors"            element={<OwnerRoute session={session} profile={profile}><Debtors /></OwnerRoute>} />
-            <Route path="/debtor/:id"         element={<OwnerRoute session={session} profile={profile}><DebtorDetail /></OwnerRoute>} />
-            <Route path="/debtor/:id/history" element={<OwnerRoute session={session} profile={profile}><DebtorHistory /></OwnerRoute>} />
-            <Route path="/add-debtor"         element={<OwnerRoute session={session} profile={profile}><AddDebtor /></OwnerRoute>} />
-            <Route path="/month-end"          element={<OwnerRoute session={session} profile={profile}><MonthEnd /></OwnerRoute>} />
-            <Route path="/history"            element={<OwnerRoute session={session} profile={profile}><TransactionHistory /></OwnerRoute>} />
-            <Route path="/invite"             element={<OwnerRoute session={session} profile={profile}><Invite /></OwnerRoute>} />
-            <Route path="/settings"           element={<OwnerRoute session={session} profile={profile}><Settings /></OwnerRoute>} />
-            <Route path="/qr"                 element={<OwnerRoute session={session} profile={profile}><QRPage /></OwnerRoute>} />
-            <Route path="/profile"            element={<OwnerRoute session={session} profile={profile}><Profile /></OwnerRoute>} />
+            {/* ── Route aliases so ResetPassword redirects land correctly ── */}
+            <Route path="/auth"          element={<Navigate to="/cashier/login" replace />} />
+            <Route path="/customer/auth" element={<Navigate to="/customer/login" replace />} />
+
+            {/* Public */}
+            <Route path="/welcome"        element={<Welcome />} />
+            <Route path="/privacy"        element={<WebPrivacyPolicy />} />
+            <Route path="/terms"          element={<WebTermsOfService />} />
+            <Route path="/legal/terms"    element={<WebTermsOfService />} />
+            <Route path="/legal/about"    element={<WebAbout />} />
+            <Route path="/legal/contact"  element={<WebContact />} />
+            <Route path="/legal/privacy"  element={<WebPrivacyPolicy />} />
+            <Route path="/join/:code"     element={<JoinApp />} />
+
+            {/* Cashier / Owner */}
+            <Route path="/dashboard"           element={<OwnerRoute session={session} profile={profile}><Dashboard /></OwnerRoute>} />
+            <Route path="/debtors"             element={<OwnerRoute session={session} profile={profile}><Debtors /></OwnerRoute>} />
+            <Route path="/debtor/:id"          element={<OwnerRoute session={session} profile={profile}><DebtorDetail /></OwnerRoute>} />
+            <Route path="/debtor/:id/history"  element={<OwnerRoute session={session} profile={profile}><DebtorHistory /></OwnerRoute>} />
+            <Route path="/debtor/:id/payments" element={<OwnerRoute session={session} profile={profile}><DebtorPayments /></OwnerRoute>} />
+            <Route path="/add-debtor"          element={<OwnerRoute session={session} profile={profile}><AddDebtor /></OwnerRoute>} />
+            <Route path="/month-end"           element={<OwnerRoute session={session} profile={profile}><MonthEnd /></OwnerRoute>} />
+            <Route path="/history"             element={<OwnerRoute session={session} profile={profile}><TransactionHistory /></OwnerRoute>} />
+            <Route path="/invite"              element={<OwnerRoute session={session} profile={profile}><Invite /></OwnerRoute>} />
+            <Route path="/settings"            element={<OwnerRoute session={session} profile={profile}><Settings /></OwnerRoute>} />
+            <Route path="/qr"                  element={<OwnerRoute session={session} profile={profile}><QRPage /></OwnerRoute>} />
+            <Route path="/profile"             element={<OwnerRoute session={session} profile={profile}><Profile /></OwnerRoute>} />
+            <Route path="/notifications"       element={<OwnerRoute session={session} profile={profile}><Notifications /></OwnerRoute>} />
 
             {/* Admin */}
             <Route path="/admin/dashboard" element={<AdminRoute session={session} profile={profile}><AdminDashboard /></AdminRoute>} />
@@ -183,16 +204,16 @@ function App() {
             <Route path="/admin/activity"  element={<AdminRoute session={session} profile={profile}><ActivityPage /></AdminRoute>} />
 
             {/* Customer */}
-            <Route path="/customer/dashboard"       element={<CustomerRoute session={session} profile={profile}><CustomerDashboard /></CustomerRoute>} />
-            <Route path="/customer/restaurant/:id"  element={<CustomerRoute session={session} profile={profile}><RestaurantView /></CustomerRoute>} />
-            <Route path="/customer/scan"            element={<CustomerRoute session={session} profile={profile}><Scan /></CustomerRoute>} />
-            <Route path="/customer/history"         element={<CustomerRoute session={session} profile={profile}><CustomerHistory /></CustomerRoute>} />
-            <Route path="/customer/profile"         element={<CustomerRoute session={session} profile={profile}><CustomerProfile /></CustomerRoute>} />
-            <Route path="/customer/disputes"        element={<CustomerRoute session={session} profile={profile}><CustomerDispute /></CustomerRoute>} />
-            <Route path="/customer/settings"        element={<CustomerRoute session={session} profile={profile}><CustomerSettings /></CustomerRoute>} />
-            <Route path="/customer/notifications"   element={<CustomerRoute session={session} profile={profile}><CustomerNotifications /></CustomerRoute>} />
-            <Route path="/customer/invite"          element={<CustomerRoute session={session} profile={profile}><CustomerInvite /></CustomerRoute>} />
-
+            <Route path="/customer/dashboard"      element={<CustomerRoute session={session} profile={profile}><CustomerDashboard /></CustomerRoute>} />
+            <Route path="/customer/restaurant/:id" element={<CustomerRoute session={session} profile={profile}><RestaurantView /></CustomerRoute>} />
+            <Route path="/customer/scan"           element={<CustomerRoute session={session} profile={profile}><Scan /></CustomerRoute>} />
+            <Route path="/customer/history"        element={<CustomerRoute session={session} profile={profile}><CustomerHistory /></CustomerRoute>} />
+            <Route path="/customer/payments"       element={<CustomerRoute session={session} profile={profile}><CustomerPayments /></CustomerRoute>} />
+            <Route path="/customer/profile"        element={<CustomerRoute session={session} profile={profile}><CustomerProfile /></CustomerRoute>} />
+            <Route path="/customer/disputes"       element={<CustomerRoute session={session} profile={profile}><CustomerDispute /></CustomerRoute>} />
+            <Route path="/customer/settings"       element={<CustomerRoute session={session} profile={profile}><CustomerSettings /></CustomerRoute>} />
+            <Route path="/customer/notifications"  element={<CustomerRoute session={session} profile={profile}><CustomerNotifications /></CustomerRoute>} />
+            <Route path="/customer/invite"         element={<CustomerRoute session={session} profile={profile}><CustomerInvite /></CustomerRoute>} />
           </Routes>
         </Suspense>
       </Router>

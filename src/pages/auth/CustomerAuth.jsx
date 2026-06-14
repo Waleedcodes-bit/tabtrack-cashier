@@ -87,6 +87,11 @@ const styles = `
   @media (max-width: 820px) { .ca-layout { flex-direction: column; } .ca-hero { width: 100%; padding: 2rem; min-height: auto; } .ca-auth-panel { width: 100%; min-height: auto; } .ca-hero-headline { font-size: 32px; } .ca-reg-grid { grid-template-columns: 1fr; } }
 `;
 
+// ── Helper: detect if running as installed PWA ────────────────────────────
+const isRunningAsApp = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
 const EyeOffIcon = () => (<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>);
 const EyeOnIcon = () => (<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>);
 const Checkbox = ({ checked, small }) => (
@@ -108,7 +113,7 @@ function getStrength(val) {
 }
 const strengthClass = (barIndex, score) => { if (barIndex >= score) return "ca-sbar"; const cls = ["weak", "fair", "good", "strong"]; return `ca-sbar ${cls[score - 1]}`; };
 
-function SignInForm({ onSuccess }) {
+function SignInForm({ onSuccess, navigate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pwVisible, setPwVisible] = useState(false);
@@ -117,31 +122,38 @@ function SignInForm({ onSuccess }) {
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
-    setError("");
-    if (!email || !password) { setError("Please enter your email and password."); return; }
-    setLoading(true);
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (authError) { setError(authError.message); return; }
-    const { data: profile, error: profileError } = await supabase.from("profiles").select("role, status").eq("id", data.user.id).single();
-    if (profileError || !profile) { setError("Account not found. Please contact support."); await supabase.auth.signOut(); return; }
-    if (profile.role !== "customer") { setError("This portal is for customers only. Please use the correct login."); await supabase.auth.signOut(); return; }
-    if (profile.status === "suspended") { setError("Your account has been suspended. Please contact support."); await supabase.auth.signOut(); return; }
-    onSuccess();
-  };
+  setError("");
+  if (!email || !password) { setError("Please enter your email and password."); return; }
+  setLoading(true);
+
+  // Save remember preference BEFORE signing in
+  localStorage.setItem('navoq_remember_me', remembered ? 'true' : 'false');
+
+  const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  setLoading(false);
+  if (authError) { setError(authError.message); return; }
+
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("role, status").eq("id", data.user.id).single();
+  if (profileError || !profile) { setError("Account not found. Please contact support."); await supabase.auth.signOut(); return; }
+  if (profile.role !== "customer") { setError("This portal is for customers only. Please use the correct login."); await supabase.auth.signOut(); return; }
+  if (profile.status === "suspended") { setError("Your account has been suspended. Please contact support."); await supabase.auth.signOut(); return; }
+
+  localStorage.setItem('loginSource', isRunningAsApp() ? 'app' : 'web');
+  onSuccess();
+};
 
   return (
     <div>
       {error && <div className="ca-error-msg">{error}</div>}
       <div className="ca-field"><label className="ca-field-label">Email</label><div className="ca-input-wrap"><svg className="ca-input-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 7 10 7 10-7" /></svg><input type="email" placeholder="you@restaurant.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} /></div></div>
       <div className="ca-field"><label className="ca-field-label">Password</label><div className="ca-input-wrap"><svg className="ca-input-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg><input type={pwVisible ? "text" : "password"} placeholder="••••••••" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} /><button className="ca-eye-btn" onClick={() => setPwVisible(v => !v)} aria-label="Toggle password visibility">{pwVisible ? <EyeOnIcon /> : <EyeOffIcon />}</button></div></div>
-      <div className="ca-remember-row"><label className="ca-checkbox-label" onClick={() => setRemembered(v => !v)}><Checkbox checked={remembered} />Remember me</label><a href="#" className="ca-forgot-link">Forgot password?</a></div>
+      <div className="ca-remember-row"><label className="ca-checkbox-label" onClick={() => setRemembered(v => !v)}><Checkbox checked={remembered} />Remember me</label><button className="forgot-link" style={{background:'none',border:'none',cursor:'pointer'}} onClick={() => navigate('/forgot-password?role=customer')}>Forgot password?</button></div>
       <button className="ca-btn-submit" onClick={handleSubmit} disabled={loading}>{loading ? "Signing in…" : "Sign In"}{!loading && <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>}</button>
     </div>
   );
 }
 
-function RegisterForm({ onSuccess }) {
+function RegisterForm({ onSuccess, navigate }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -164,11 +176,22 @@ function RegisterForm({ onSuccess }) {
     if (strength.score < 2) { setError("Please choose a stronger password."); return; }
     if (pw !== pw2) { setError("Passwords do not match."); return; }
     if (!termsChecked) { setError("Please agree to the Terms of Service."); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) { setError('Please enter a valid email address.'); return; }
+    const blockedDomains = ['mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwaway.email', 'yopmail.com'];
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (blockedDomains.includes(domain)) { setError('Please use a permanent email address.'); return; }
     setLoading(true);
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password: pw, options: { data: { role: "customer", full_name: `${firstName} ${lastName}` } } });
     setLoading(false);
     if (signUpError) { setError(signUpError.message); return; }
-    if (data.session) { onSuccess(); } else { setSuccess("Account created! Please check your email to confirm, then sign in."); }
+    if (data.session) {
+      // ── Save login source so logout knows where to send the user ──
+      localStorage.setItem('loginSource', isRunningAsApp() ? 'app' : 'web');
+      onSuccess();
+    } else {
+      navigate('/verify-otp', { state: { email, type: 'signup', role: 'customer' } });
+    }
   };
 
   return (
@@ -182,7 +205,7 @@ function RegisterForm({ onSuccess }) {
       <div className="ca-field"><label className="ca-field-label">Email Address</label><div className="ca-input-wrap"><svg className="ca-input-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 7 10 7 10-7" /></svg><input type="email" placeholder="you@restaurant.com" value={email} onChange={(e) => setEmail(e.target.value)} /></div></div>
       <div className="ca-field"><label className="ca-field-label">Password</label><div className="ca-input-wrap"><svg className="ca-input-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg><input type={pwVisible ? "text" : "password"} placeholder="Create a password" value={pw} onChange={e => setPw(e.target.value)} /><button className="ca-eye-btn" onClick={() => setPwVisible(v => !v)} aria-label="Toggle">{pwVisible ? <EyeOnIcon /> : <EyeOffIcon />}</button></div><div className="ca-pw-strength"><div className="ca-strength-bars">{[0, 1, 2, 3].map(i => (<div key={i} className={strengthClass(i, strength.score)} />))}</div><span className="ca-strength-label" style={{ color: pw ? strength.color : undefined }}>{strength.label}</span></div></div>
       <div className="ca-field"><label className="ca-field-label">Confirm Password</label><div className="ca-input-wrap"><svg className="ca-input-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg><input type={pw2Visible ? "text" : "password"} placeholder="Repeat your password" value={pw2} onChange={e => setPw2(e.target.value)} /><button className="ca-eye-btn" onClick={() => setPw2Visible(v => !v)} aria-label="Toggle">{pw2Visible ? <EyeOnIcon /> : <EyeOffIcon />}</button></div><p className={match.cls}>{match.text}</p></div>
-      <label className="ca-terms-label" onClick={() => setTermsChecked(v => !v)}><Checkbox checked={termsChecked} small />I agree to the{" "}<a href="#" className="ca-forgot-link" style={{ fontSize: 13 }}>Terms of Service</a>{" "}and{" "}<a href="#" className="ca-forgot-link" style={{ fontSize: 13 }}>Privacy Policy</a></label>
+      <label className="ca-terms-label" onClick={() => setTermsChecked(v => !v)}><Checkbox checked={termsChecked} small />I agree to the{" "}<a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="ca-forgot-link" style={{ fontSize: 13 }} onClick={e => e.stopPropagation()}>Terms of Service</a>{" "}and{" "}<a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="ca-forgot-link" style={{ fontSize: 13 }} onClick={e => e.stopPropagation()}>Privacy Policy</a></label>
       <button className="ca-btn-submit" style={{ marginTop: "1rem" }} onClick={handleSubmit} disabled={loading}>{loading ? "Creating account…" : "Create Account"}{!loading && <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>}</button>
     </div>
   );
@@ -195,16 +218,13 @@ export default function CustomerAuth() {
   const isSignIn = activeTab === "signin";
   const handleSuccess = () => navigate("/customer/dashboard");
 
-  // ── Smart back button ──────────────────────────────────────────────────────
-  // ?from=web  → came from the static website  → hard redirect back to site
-  // (no param) → came from the app RoleSelection → SPA navigate to '/'
   const handleBack = () => {
-  if (searchParams.get('from') === 'web') {
-    window.location.href = '/welcome';
-  } else {
-    navigate('/welcome');
-  }
-};
+    if (searchParams.get('from') === 'web') {
+      window.location.href = '/welcome';
+    } else {
+      navigate('/welcome');
+    }
+  };
 
   return (
     <>
@@ -228,7 +248,7 @@ export default function CustomerAuth() {
           </div>
           <div className="ca-hero-footer">
             <span>© 2025 Navoq. All rights reserved.</span>
-            <div className="ca-footer-links"><a href="#">Terms</a><span className="ca-footer-sep">|</span><a href="#">Privacy</a></div>
+            <div className="ca-footer-links"><a href="/legal/terms" target="_blank" rel="noopener noreferrer">Terms</a><span className="ca-footer-sep">|</span><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy</a></div>
           </div>
         </div>
 
@@ -244,7 +264,7 @@ export default function CustomerAuth() {
               <button className={`ca-tab${isSignIn ? " active" : ""}`} role="tab" aria-selected={isSignIn} onClick={() => setActiveTab("signin")}>Sign In</button>
               <button className={`ca-tab${!isSignIn ? " active" : ""}`} role="tab" aria-selected={!isSignIn} onClick={() => setActiveTab("register")}>Register</button>
             </div>
-            {isSignIn ? <SignInForm onSuccess={handleSuccess} /> : <RegisterForm onSuccess={handleSuccess} />}
+            {isSignIn ? <SignInForm onSuccess={handleSuccess} navigate={navigate} /> : <RegisterForm onSuccess={handleSuccess} navigate={navigate} />}
           </div>
           <div className="ca-security-note">
             <div className="ca-security-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9,12 11,14 15,10" /></svg></div>

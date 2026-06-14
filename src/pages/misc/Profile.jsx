@@ -123,7 +123,8 @@ const Profile = () => {
   // ── Sign Out ──────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
     setSigningOut(true);
-    await supabase.auth.signOut();
+    localStorage.removeItem('navoq_remember_me');
+await supabase.auth.signOut();
     navigate('/');
   };
 

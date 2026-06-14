@@ -75,7 +75,8 @@ const CustomerProfile = () => {
   const handleEditCancel = () => { setDraft({ ...profile }); setEditMode(false); };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('navoq_remember_me');
+await supabase.auth.signOut();
     navigate('/');
   };
 

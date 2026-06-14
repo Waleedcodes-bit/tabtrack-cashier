@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Trash2, FileText, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Trash2, FileText, ChevronRight, AlertTriangle, CreditCard } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { formatZAR } from '../../utils/format';
 
@@ -134,6 +134,19 @@ const DebtorDetail = () => {
                 <p className="text-sm text-gray-400 dark:text-white/30">All transactions for this debtor</p>
               </div>
               <ChevronRight size={15} className="text-gray-300 dark:text-white/20 group-hover:text-emerald-500 transition-colors" />
+            </button>
+
+            {/* Payment summary */}
+            <button onClick={() => navigate(`/debtor/${id}/payments`)}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:border-blue-200 dark:hover:border-blue-500/30 hover:shadow-sm transition-all group">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <CreditCard size={17} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-base font-bold text-gray-900 dark:text-white">Payment Summary</p>
+                <p className="text-sm text-gray-400 dark:text-white/30">All payments made by this debtor</p>
+              </div>
+              <ChevronRight size={15} className="text-gray-300 dark:text-white/20 group-hover:text-blue-500 transition-colors" />
             </button>
 
             {/* Delete */}

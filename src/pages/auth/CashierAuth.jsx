@@ -125,7 +125,7 @@ function getStrength(val) {
 }
 const strengthClass = (barIndex, score) => { if (barIndex >= score) return "sbar"; const cls = ["weak", "fair", "good", "strong"]; return `sbar ${cls[score - 1]}`; };
 
-function SignInForm({ onSuccess }) {
+function SignInForm({ onSuccess, navigate }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pwVisible, setPwVisible] = useState(false);
@@ -134,12 +134,16 @@ function SignInForm({ onSuccess }) {
   const [error, setError] = useState('');
 
   const handleSignIn = async () => {
-    if (!email || !password) { setError('Please fill in all fields.'); return; }
-    setLoading(true); setError('');
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) { setError(signInError.message); setLoading(false); return; }
-    onSuccess();
-  };
+  if (!email || !password) { setError('Please fill in all fields.'); return; }
+  setLoading(true); setError('');
+
+  // Save remember preference BEFORE signing in
+  localStorage.setItem('navoq_remember_me', remembered ? 'true' : 'false');
+
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  if (signInError) { setError(signInError.message); setLoading(false); return; }
+  onSuccess();
+};
 
   return (
     <div>
@@ -161,7 +165,7 @@ function SignInForm({ onSuccess }) {
       </div>
       <div className="remember-row">
         <label className="checkbox-label" onClick={() => setRemembered(v => !v)}><Checkbox checked={remembered} />Remember me</label>
-        <a href="#" className="forgot-link">Forgot password?</a>
+        <button className="forgot-link" style={{background:'none',border:'none',cursor:'pointer'}} onClick={() => navigate('/forgot-password?role=owner')}>Forgot password?</button>
       </div>
       <button className="btn-signin" onClick={handleSignIn} disabled={loading}>
         {loading ? 'Signing in...' : 'Sign In'}
@@ -171,7 +175,7 @@ function SignInForm({ onSuccess }) {
   );
 }
 
-function RegisterForm({ onSuccess }) {
+function RegisterForm({ onSuccess, navigate }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [businessType, setBusinessType] = useState('restaurant');
@@ -195,10 +199,15 @@ function RegisterForm({ onSuccess }) {
     if (regPw !== regPw2) { setError('Passwords do not match.'); return; }
     if (strength.score < 2) { setError('Please choose a stronger password.'); return; }
     if (!termsChecked) { setError('Please accept the Terms of Service.'); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) { setError('Please enter a valid email address.'); return; }
+      const blockedDomains = ['mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwaway.email', 'yopmail.com'];
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (blockedDomains.includes(domain)) { setError('Please use a permanent email address.'); return; }
     setLoading(true); setError('');
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password: regPw, options: { data: { role: 'owner', full_name: `${firstName} ${lastName}`, business_name: businessName, business_type: businessType, phone } } });
     if (signUpError) { setError(signUpError.message); setLoading(false); return; }
-    if (data.session) { onSuccess(); } else { setSuccess('Account created! You can now sign in.'); }
+    navigate('/verify-otp', { state: { email, type: 'signup', role: 'owner' } });
     setLoading(false);
   };
 
@@ -283,7 +292,7 @@ export default function AuthPage() {
               <button className={`tab${isSignIn ? ' active' : ''}`} role="tab" onClick={() => setActiveTab('signin')}>Sign In</button>
               <button className={`tab${!isSignIn ? ' active' : ''}`} role="tab" onClick={() => setActiveTab('register')}>Register</button>
             </div>
-            {isSignIn ? <SignInForm onSuccess={handleSuccess} /> : <RegisterForm onSuccess={handleSuccess} />}
+            {isSignIn ? <SignInForm onSuccess={handleSuccess} navigate={navigate} /> : <RegisterForm onSuccess={handleSuccess}  navigate={navigate} />}
           </div>
           <div className="security-note">
             <div className="security-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9,12 11,14 15,10" /></svg></div>

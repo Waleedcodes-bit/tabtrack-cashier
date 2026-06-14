@@ -18,6 +18,7 @@ const MonthEnd = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [amount, setAmount]                     = useState('');
   const [closing, setClosing]                   = useState(false);
+  const [filter, setFilter]                     = useState('all');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -220,92 +221,123 @@ const MonthEnd = () => {
     );
   };
 
-  const OverviewContent = () => (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-2xl p-4 flex items-center gap-3"
-        style={canClose
-          ? { backgroundColor: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }
-          : { backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.15)' }
-        }>
-        {canClose
-          ? <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />
-          : <AlertCircle size={18} className="text-orange-500 flex-shrink-0" />}
-        <div>
-          <p className={`text-sm font-black uppercase tracking-wider ${canClose ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`}>
-            {canClose ? 'All accounts settled' : `${unpaidCount} account${unpaidCount !== 1 ? 's' : ''} still unpaid`}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-white/30 font-medium mt-0.5">
-            {canClose ? 'Ready to close the month' : 'Cannot close until all are settled'}
-          </p>
+  const OverviewContent = () => {
+    const activeCustomers = customers.filter(c => getMonthlyTotal(c.id) > 0);
+
+    const filteredCustomers = activeCustomers.filter(c => {
+      if (filter === 'paid')   return isPaid(c.id);
+      if (filter === 'unpaid') return !isPaid(c.id);
+      return true;
+    });
+
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="rounded-2xl p-4 flex items-center gap-3"
+          style={canClose
+            ? { backgroundColor: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }
+            : { backgroundColor: 'rgba(234,88,12,0.06)', border: '1px solid rgba(234,88,12,0.15)' }
+          }>
+          {canClose
+            ? <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />
+            : <AlertCircle size={18} className="text-orange-500 flex-shrink-0" />}
+          <div>
+            <p className={`text-sm font-black uppercase tracking-wider ${canClose ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`}>
+              {canClose ? 'All accounts settled' : `${unpaidCount} account${unpaidCount !== 1 ? 's' : ''} still unpaid`}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-white/30 font-medium mt-0.5">
+              {canClose ? 'Ready to close the month' : 'Cannot close until all are settled'}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest ml-1">All Accounts</p>
-
-      <div className="space-y-2.5">
-        {loading ? (
-          <div className="py-10 text-center">
-            <p className="text-sm text-gray-400 dark:text-white/30 font-medium">Loading accounts…</p>
+        {/* Filter tabs */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest">All Accounts</p>
+          <div className="flex gap-1.5">
+            {[['all', 'All'], ['unpaid', 'Unpaid'], ['paid', 'Paid']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setFilter(val)}
+                className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider transition-colors"
+                style={filter === val
+                  ? { backgroundColor: '#0f2347', color: '#fff' }
+                  : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }
+                }
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        ) : customers.filter(c => getMonthlyTotal(c.id) > 0).length === 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-sm text-gray-400 dark:text-white/30 font-medium">No orders this month</p>
-          </div>
-        ) : (
-          customers.map(customer => {
-            const monthlyTotal     = getMonthlyTotal(customer.id);
-            const paid             = isPaid(customer.id);
-            const amountPaid       = payments[customer.id] || 0;
-            const customerRollover = Math.max(0, monthlyTotal - amountPaid);
-            if (monthlyTotal === 0) return null;
+        </div>
 
-            return (
-              <div key={customer.id}
-                onClick={() => !paid && setSelectedCustomer(customer)}
-                className={`bg-white dark:bg-white/5 rounded-2xl p-4 flex items-center justify-between transition-all ${!paid ? 'cursor-pointer hover:shadow-md' : ''} ${selectedCustomer?.id === customer.id ? 'ring-2 ring-emerald-400' : ''}`}
-                style={{ border: paid ? '1px solid rgba(52,211,153,0.2)' : '1px solid rgba(234,88,12,0.2)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-white text-sm flex-shrink-0"
-                    style={{ background: paid ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #0f2347, #1a3565)' }}>
-                    {customer.name.split(' ').map(n => n[0]).join('')}
+        <div className="space-y-2.5">
+          {loading ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400 dark:text-white/30 font-medium">Loading accounts…</p>
+            </div>
+          ) : activeCustomers.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400 dark:text-white/30 font-medium">No orders this month</p>
+            </div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400 dark:text-white/30 font-medium">No customers in this category</p>
+            </div>
+          ) : (
+            filteredCustomers.map(customer => {
+              const monthlyTotal     = getMonthlyTotal(customer.id);
+              const paid             = isPaid(customer.id);
+              const amountPaid       = payments[customer.id] || 0;
+              const customerRollover = Math.max(0, monthlyTotal - amountPaid);
+
+              return (
+                <div key={customer.id}
+                  onClick={() => !paid && setSelectedCustomer(customer)}
+                  className={`bg-white dark:bg-white/5 rounded-2xl p-4 flex items-center justify-between transition-all ${!paid ? 'cursor-pointer hover:shadow-md' : ''} ${selectedCustomer?.id === customer.id ? 'ring-2 ring-emerald-400' : ''}`}
+                  style={{ border: paid ? '1px solid rgba(52,211,153,0.2)' : '1px solid rgba(234,88,12,0.2)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-white text-sm flex-shrink-0"
+                      style={{ background: paid ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #0f2347, #1a3565)' }}>
+                      {customer.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="font-bold text-base text-gray-900 dark:text-white">{customer.name}</p>
+                      <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5">{customer.code}</p>
+                      {paid && customerRollover > 0 && (
+                        <p className="text-xs font-black text-orange-500 dark:text-orange-400 mt-0.5">Rollover: {formatZAR(customerRollover)}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-base text-gray-900 dark:text-white">{customer.name}</p>
-                    <p className="text-xs font-black text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5">{customer.code}</p>
-                    {paid && customerRollover > 0 && (
-                      <p className="text-xs font-black text-orange-500 dark:text-orange-400 mt-0.5">Rollover: {formatZAR(customerRollover)}</p>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className={`font-black text-base ${paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-500 dark:text-orange-400'}`}>
+                        {paid ? 'R0 Owed' : formatZAR(monthlyTotal)}
+                      </p>
+                      <p className={`text-xs font-black uppercase tracking-tight mt-0.5 ${paid ? 'text-emerald-500 dark:text-emerald-400' : 'text-orange-400 dark:text-orange-400/70'}`}>
+                        {paid ? 'Paid' : 'Unpaid'}
+                      </p>
+                    </div>
+                    {!paid && <ChevronRight size={15} className="text-gray-300 dark:text-white/20" />}
+                    {paid  && <CheckCircle size={16} className="text-emerald-500 dark:text-emerald-400" />}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className={`font-black text-base ${paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-500 dark:text-orange-400'}`}>
-                      {formatZAR(monthlyTotal)}
-                    </p>
-                    <p className={`text-xs font-black uppercase tracking-tight mt-0.5 ${paid ? 'text-emerald-500 dark:text-emerald-400' : 'text-orange-400 dark:text-orange-400/70'}`}>
-                      {paid ? 'Settled' : 'Unpaid'}
-                    </p>
-                  </div>
-                  {!paid && <ChevronRight size={15} className="text-gray-300 dark:text-white/20" />}
-                  {paid  && <CheckCircle size={16} className="text-emerald-500 dark:text-emerald-400" />}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
 
-      <button onClick={handleClose} disabled={!canClose || closing}
-        className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-        style={canClose && !closing
-          ? { background: 'linear-gradient(135deg, #0f2347 0%, #0a3328 50%, #0f4d3a 100%)', color: '#fff', boxShadow: '0 8px 24px rgba(15,35,71,0.2)' }
-          : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
-        }>
-        <Lock size={15} />
-        {closing ? 'Closing month…' : canClose ? `Close ${MONTH_NAME}` : `${unpaidCount} Unpaid — Cannot Close`}
-      </button>
-    </div>
-  );
+        <button onClick={handleClose} disabled={!canClose || closing}
+          className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          style={canClose && !closing
+            ? { background: 'linear-gradient(135deg, #0f2347 0%, #0a3328 50%, #0f4d3a 100%)', color: '#fff', boxShadow: '0 8px 24px rgba(15,35,71,0.2)' }
+            : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+          }>
+          <Lock size={15} />
+          {closing ? 'Closing month…' : canClose ? `Close ${MONTH_NAME}` : `${unpaidCount} Unpaid — Cannot Close`}
+        </button>
+      </div>
+    );
+  };
 
   const SidebarSummary = () => (
     <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-5 sticky top-4">
@@ -313,7 +345,7 @@ const MonthEnd = () => {
       <div className="space-y-3">
         {[
           { label: 'Total accounts', value: customers.filter(c => getMonthlyTotal(c.id) > 0).length,                          color: 'text-gray-900 dark:text-white'        },
-          { label: 'Settled',        value: customers.filter(c => isPaid(c.id) && getMonthlyTotal(c.id) > 0).length,          color: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Paid',           value: customers.filter(c => isPaid(c.id) && getMonthlyTotal(c.id) > 0).length,          color: 'text-emerald-600 dark:text-emerald-400' },
           { label: 'Unpaid',         value: unpaidCount,                                                                        color: 'text-orange-500 dark:text-orange-400'   },
         ].map(({ label, value, color }, i) => (
           <div key={label} className={`flex justify-between items-center py-2 ${i < 2 ? 'border-b border-gray-50 dark:border-white/5' : ''}`}>

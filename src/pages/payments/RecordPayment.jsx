@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, Clock, Loader } from 'lucide-react';
+import { Search, ChevronRight, Clock, Loader, AlertTriangle } from 'lucide-react';
 
 import InnerLayout from '../../components/layout/InnerLayout';
 import { supabase } from '../../lib/supabase';
@@ -92,9 +92,11 @@ const RecordPayment = () => {
     fetchOrders();
   }, [selectedCustomer]);
 
-  const paidAmount = parseFloat(amount) || 0;
-  const balance    = selectedCustomer?.balance || 0;
-  const rollover   = Math.max(0, balance - paidAmount);
+  const paidAmount  = parseFloat(amount) || 0;
+  const balance     = selectedCustomer?.balance || 0;
+  const rollover    = Math.max(0, balance - paidAmount);
+  const isOverpaid  = paidAmount > balance;
+  const overpaidBy  = paidAmount - balance;
 
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -128,7 +130,6 @@ const RecordPayment = () => {
         subtitle: `${formatZAR(paidAmount)} on ${paymentDate}`,
       });
 
-      // 4. Push notification to customer
       // 4. Push notification to customer
       if (selectedCustomer.auth_user_id) {
         const newBalance = Math.max(0, balance - paidAmount);
@@ -309,11 +310,28 @@ const RecordPayment = () => {
             inputMode="decimal"
             value={amount}
             onChange={e => setAmount(e.target.value)}
-            className="w-full px-5 py-5 bg-white rounded-2xl border border-gray-100 outline-none text-2xl font-bold text-gray-900 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all placeholder:text-gray-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={`w-full px-5 py-5 bg-white rounded-2xl border outline-none text-2xl font-bold text-gray-900 focus:ring-4 transition-all placeholder:text-gray-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+              ${isOverpaid
+                ? 'border-amber-400 focus:ring-amber-500/10 focus:border-amber-400'
+                : 'border-gray-100 focus:ring-green-500/10 focus:border-green-500'
+              }`}
             placeholder="0.00"
             autoFocus
           />
         </div>
+
+        {/* Overpayment warning */}
+        {isOverpaid && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+            <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-amber-700 text-sm font-black uppercase tracking-tight">Amount exceeds balance</p>
+              <p className="text-amber-600 text-xs font-medium mt-0.5">
+                You're recording {formatZAR(overpaidBy)} more than what's owed. Double-check the amount before confirming.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2 ml-1">Payment Date</label>
@@ -325,19 +343,13 @@ const RecordPayment = () => {
           />
         </div>
 
-        {paidAmount > 0 && (
+        {paidAmount > 0 && !isOverpaid && rollover > 0 && (
           <div className="p-4 rounded-2xl bg-orange-50 border border-orange-100">
             <p className="text-orange-600 text-xs font-bold uppercase tracking-tight mb-2">Allocation Summary</p>
             <div className="flex justify-between text-sm">
               <span className="text-orange-600/80 font-medium">Rollover to next month</span>
               <span className="font-bold text-orange-700">{formatZAR(rollover)}</span>
             </div>
-            {paidAmount > balance && (
-              <div className="mt-2 pt-2 border-t border-orange-200 flex justify-between text-xs">
-                <span className="text-green-600 font-bold">Credit Balance</span>
-                <span className="text-green-600 font-bold">{formatZAR(paidAmount - balance)}</span>
-              </div>
-            )}
           </div>
         )}
 
@@ -351,14 +363,18 @@ const RecordPayment = () => {
             disabled={paidAmount <= 0 || submitting}
             className={`w-full py-4 rounded-2xl font-bold text-sm shadow-lg transition-all active:scale-[0.98]
               ${paidAmount > 0 && !submitting
-                ? 'bg-green-600 text-white shadow-green-200 hover:bg-green-700'
+                ? isOverpaid
+                  ? 'bg-amber-500 text-white shadow-amber-200 hover:bg-amber-600'
+                  : 'bg-green-600 text-white shadow-green-200 hover:bg-green-700'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}`}
           >
-            {submitting ? 'Recording…' : 'Confirm Payment'}
+            {submitting ? 'Recording…' : isOverpaid ? 'Confirm Anyway' : 'Confirm Payment'}
           </button>
-          <p className="text-center text-[10px] text-gray-400 mt-4 px-6 uppercase tracking-widest font-bold leading-relaxed">
-            Remaining balance will roll over to next month.
-          </p>
+          {!isOverpaid && (
+            <p className="text-center text-[10px] text-gray-400 mt-4 px-6 uppercase tracking-widest font-bold leading-relaxed">
+              Remaining balance will roll over to next month.
+            </p>
+          )}
         </div>
       </div>
     </InnerLayout>

@@ -86,12 +86,6 @@ const AddDebtor = () => {
       return;
     }
 
-    // Update the profile owner_id so customer knows they're linked
-    await supabase
-      .from('profiles')
-      .update({ owner_id: user.id })
-      .eq('id', foundUser.id);
-
     setAdding(false);
     setSuccess(true);
     setTimeout(() => navigate('/debtors'), 1500);

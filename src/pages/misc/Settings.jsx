@@ -41,8 +41,11 @@ const Settings = () => {
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    await supabase.auth.signOut();
-    navigate('/');
+    const source = localStorage.getItem('loginSource');
+    localStorage.removeItem('loginSource');
+    localStorage.removeItem('navoq_remember_me');
+await supabase.auth.signOut();
+    navigate(source === 'app' ? '/role-selection' : '/');
   };
 
   const handleSendFeedback = async () => {

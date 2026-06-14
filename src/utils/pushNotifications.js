@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase';
 
 const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY;
 
-// Convert VAPID public key to Uint8Array (required by browser API)
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -10,28 +9,16 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
 }
 
-// Register service worker and subscribe to push
 export async function subscribeToPush(userId) {
   try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.log('Push notifications not supported');
-      return false;
-    }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
 
-    // Request permission
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Notification permission denied');
-      return false;
-    }
+    if (permission !== 'granted') return false;
 
-    // Get service worker registration
     const registration = await navigator.serviceWorker.ready;
-
-    // Check if already subscribed
     let subscription = await registration.pushManager.getSubscription();
 
-    // If not subscribed, create new subscription
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -39,7 +26,6 @@ export async function subscribeToPush(userId) {
       });
     }
 
-    // Save subscription to Supabase
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert(
@@ -52,7 +38,6 @@ export async function subscribeToPush(userId) {
       return false;
     }
 
-    console.log('Push subscription saved successfully');
     return true;
   } catch (err) {
     console.error('subscribeToPush error:', err);
@@ -60,12 +45,21 @@ export async function subscribeToPush(userId) {
   }
 }
 
-// Send a push notification to a specific user via Netlify function
 export async function sendPushNotification({ userId, title, body, url }) {
   try {
+    // Get the current session token to authenticate the request
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session — cannot send push');
+      return false;
+    }
+
     const response = await fetch('/.netlify/functions/send-push', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
       body: JSON.stringify({ user_id: userId, title, body, url }),
     });
 
@@ -82,7 +76,6 @@ export async function sendPushNotification({ userId, title, body, url }) {
   }
 }
 
-// Unsubscribe from push notifications
 export async function unsubscribeFromPush(userId) {
   try {
     const registration = await navigator.serviceWorker.ready;

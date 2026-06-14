@@ -42,13 +42,15 @@ const CustomerSettings = () => {
   // ── Sign Out ──────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
     setSigningOut(true);
+    const source = localStorage.getItem('loginSource');
+    localStorage.removeItem('loginSource');
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Sign out error:', error);
       setSigningOut(false);
       return;
     }
-    navigate('/');
+    navigate(source === 'app' ? '/role-selection' : '/');
   };
 
   // ── Send Feedback ─────────────────────────────────────────────────────────

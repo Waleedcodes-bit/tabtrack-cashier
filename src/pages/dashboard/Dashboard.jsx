@@ -77,14 +77,14 @@ const Dashboard = () => {
 
     let pendingAmount = 0;
     if (customerIds.length > 0) {
-      const { data: disputedOrders } = await supabase
-        .from('orders')
-        .select('amount')
+      // Pending = order_edits with status pending (cashier edited, customer not yet accepted)
+      const { data: pendingEdits } = await supabase
+        .from('order_edits')
+        .select('new_amount')
         .in('customer_id', customerIds)
-        .eq('disputed', true)
-        .eq('dispute_status', 'pending');
+        .eq('status', 'pending');
 
-      pendingAmount = (disputedOrders || []).reduce((s, o) => s + (o.amount || 0), 0);
+      pendingAmount = (pendingEdits || []).reduce((s, e) => s + (e.new_amount || 0), 0);
     }
 
     setStats({ totalOutstanding, pendingAmount, totalDebtors });

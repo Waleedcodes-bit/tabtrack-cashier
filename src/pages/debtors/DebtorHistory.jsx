@@ -5,6 +5,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { supabase } from '../../lib/supabase';
 import { formatZAR } from '../../utils/format';
 import { addNotification, addEditRequest } from '../../store/notificationStore';
+import { sendPushNotification } from '../../utils/pushNotifications';
 
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const LAST_MONTH    = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 7);
@@ -109,7 +110,7 @@ const DebtorHistory = () => {
       });
     }
 
-    // 3. Notify the customer
+    // 3. Notify the customer (in-app + push to device)
     if (customer?.auth_user_id) {
       await addNotification({
         user_id: customer.auth_user_id,
@@ -117,6 +118,12 @@ const DebtorHistory = () => {
         title:   'Order amount edited',
         body:    `${editingOrder.name} was changed to ${formatZAR(updated)} — please review`,
         amount:  formatZAR(updated),
+      });
+      await sendPushNotification({
+        userId: customer.auth_user_id,
+        title:  'Order amount edited',
+        body:   `${editingOrder.name} was changed to ${formatZAR(updated)} — tap to review`,
+        url:    '/customer/disputes',
       });
     }
 

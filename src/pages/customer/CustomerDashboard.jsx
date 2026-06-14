@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, AlertCircle, Link as LinkIcon, Store, ShieldAlert } from 'lucide-react';
+import { Search, ChevronRight, AlertCircle, Link as LinkIcon, Store, ShieldAlert, CreditCard } from 'lucide-react';
 import CustomerLayout from '../../components/layout/CustomerLayout';
 import { formatZAR } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
@@ -77,20 +77,27 @@ const CustomerDashboard = () => {
 
     const customerIds = customerRows.map(r => r.id);
 
+    // Count pending order_edits (cashier edits awaiting customer acceptance)
     const { count } = await supabase
-      .from('orders')
+      .from('order_edits')
       .select('id', { count: 'exact', head: true })
       .in('customer_id', customerIds)
-      .eq('disputed', true)
-      .eq('dispute_status', 'pending');
+      .eq('status', 'pending');
 
     setPendingCount(count || 0);
   }, []);
 
-  useEffect(() => {
-    fetchRestaurants();
+ useEffect(() => {
+  fetchRestaurants();
+  fetchDisputeCount();
+
+  // Poll every 10 seconds for dispute count updates
+  const interval = setInterval(() => {
     fetchDisputeCount();
-  }, [fetchRestaurants, fetchDisputeCount]);
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, [fetchRestaurants, fetchDisputeCount]);
 
   const totalBalance = restaurants.reduce((sum, r) => sum + r.balance, 0);
   const filteredRestaurants = restaurants.filter(r =>
@@ -166,19 +173,22 @@ const CustomerDashboard = () => {
         </button>
 
         <button
-          onClick={() => navigate('/customer/scan')}
+          onClick={() => navigate('/customer/payments')}
           className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 active:scale-95 transition-all text-left"
           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
         >
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-            <LinkIcon size={18} className="text-emerald-600 dark:text-emerald-400" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <CreditCard size={18} className="text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <p className="font-bold text-sm text-gray-900 dark:text-white">Scan</p>
-            <p className="text-[10px] text-gray-400 dark:text-white/30 font-medium">Link a restaurant</p>
+            <p className="font-bold text-sm text-gray-900 dark:text-white">Payments</p>
+            <p className="text-[10px] text-gray-400 dark:text-white/30 font-medium">Your payment history</p>
           </div>
         </button>
       </div>
+
+      {/* ── Payment History card ── */}
+      
 
       {/* ── Search ── */}
       <div className="relative mb-5">

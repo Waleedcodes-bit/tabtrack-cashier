@@ -379,29 +379,6 @@ const Welcome = () => {
                     </div>
                   </div>
                 </>
-              ) : installPlatform === 'desktop' ? (
-                <>
-                  <div className="wl-modal-sub">Chrome's install button is in the address bar — look for the icon on the right side.</div>
-                  <div className="wl-modal-steps">
-                    <div className="wl-modal-step">
-                      <div className="wl-modal-step-num">1</div>
-                      <div className="wl-modal-step-text">
-                        Look at the <strong>address bar</strong> at the top of Chrome — on the right you'll see a monitor icon with a download arrow
-                        <div className="wl-modal-icon-row">
-                          <span className="wl-modal-icon-badge">⊕ Install Navoq</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="wl-modal-step">
-                      <div className="wl-modal-step-num">2</div>
-                      <div className="wl-modal-step-text">Click it, then click <strong>"Install"</strong> in the popup that appears</div>
-                    </div>
-                    <div className="wl-modal-step">
-                      <div className="wl-modal-step-num">3</div>
-                      <div className="wl-modal-step-text">Navoq opens as its own app — <strong>pin it to your taskbar</strong> for quick access</div>
-                    </div>
-                  </div>
-                </>
               ) : (
                 <>
                   <div className="wl-modal-sub">Follow these steps in Chrome to install Navoq on your device.</div>
@@ -713,8 +690,8 @@ const Welcome = () => {
                   <div className="wl-footer-col-title">Company</div>
                   <a href="#">About</a>
                   <a href="mailto:hello@navoq.co.za">Contact</a>
-                  <button onClick={() => navigate('/privacy')}>Privacy Policy</button>
-                  <button onClick={() => navigate('/terms')}>Terms of Service</button>
+                  <button onClick={() => navigate('/legal/privacy')}>Privacy Policy</button>
+                  <button onClick={() => navigate('/legal/terms')}>Terms of Service</button>
                 </div>
               </div>
             </div>
